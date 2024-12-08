@@ -1,0 +1,6 @@
+i = 8;
+sum = 0;
+while (i) {
+  sum = sum + i;
+  i = i - 1
+}

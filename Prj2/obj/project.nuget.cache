@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "6pzB9ymXnD8=",
+  "success": true,
+  "projectFilePath": "/Users/dong_gas/Desktop/기초컴파일러구성/Prj2/IRGenerate.fsproj",
+  "expectedPackageFiles": [
+    "/Users/dong_gas/.nuget/packages/fsharp.core/8.0.401/fsharp.core.8.0.401.nupkg.sha512",
+    "/Users/dong_gas/.nuget/packages/fslexyacc/11.2.0/fslexyacc.11.2.0.nupkg.sha512",
+    "/Users/dong_gas/.nuget/packages/fslexyacc.runtime/11.2.0/fslexyacc.runtime.11.2.0.nupkg.sha512"
+  ],
+  "logs": []
+}

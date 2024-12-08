@@ -1,0 +1,7 @@
+x = 1;
+y = true;
+if (x == y) {
+  z = 1
+} else {
+  z = false
+}

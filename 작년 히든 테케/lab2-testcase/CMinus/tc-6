@@ -1,0 +1,10 @@
+i = 15;
+sum = 0;
+continue = true;
+while (continue) {
+  sum = sum + i;
+  i = (i + i) - 10;
+  if (i > 100) {
+    continue = false
+  };
+}

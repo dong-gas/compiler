@@ -1,0 +1,4 @@
+int f(bool b, int i) {
+  int a= true;
+  a=10;
+}

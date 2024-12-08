@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "+PeSJaTQu9acegJ1cQO9dQFv9l6lm/jAj5h5ABaaKn3tYtROLZtZa2rQVDWpbo1VwlkRgxQQ7x7pULl5VPNtAw==",
+  "success": true,
+  "projectFilePath": "/sogang/under/cse20211507/complier/HW2/P2/P2.fsproj",
+  "expectedPackageFiles": [
+    "/sogang/under/cse20211507/.nuget/packages/fsharp.core/8.0.200/fsharp.core.8.0.200.nupkg.sha512"
+  ],
+  "logs": []
+}

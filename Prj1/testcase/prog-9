@@ -1,0 +1,19 @@
+bool f(int n, int* a) {
+    bool x;
+    int *y;
+    if(x == y){
+        if(a==a){
+            return &n==a;
+        }
+        else{
+            return *a;
+            return n;
+            return 0;
+            return true;
+            return false;
+            return true == false;
+            int b;
+            return (*a==4) && (a==&b);
+        }
+    }
+}

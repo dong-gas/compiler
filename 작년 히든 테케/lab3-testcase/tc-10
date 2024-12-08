@@ -1,0 +1,8 @@
+let n = 10 in
+let inc x = x + n in
+let n = 20 in
+let twice f =
+  fun x -> f (f x)
+in
+let partial = twice 5 in
+twice inc 5

@@ -1,0 +1,10 @@
+x = 1;
+y = true;
+p = &x;
+q = &p;
+r = q;
+if (p == r) {
+  y = false
+} else {
+  *(*r) = *(*q) + 10
+}

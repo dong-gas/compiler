@@ -1,0 +1,8 @@
+int f(int i) {
+  int a= 1;
+  if (a){
+    int x = 3;
+    x=1;
+  }
+  x=1;
+}

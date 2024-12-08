@@ -1,0 +1,7 @@
+let sigma f =
+  let rec sigma_helper n =
+    if n < 0 then 0 else f n + sigma_helper (n - 1)
+  in
+  sigma_helper 10
+in
+sigma (fun x -> x - 1)

@@ -1,0 +1,16 @@
+int f(int i) {
+  return true + i;
+  x=1;
+  int * i= true;
+  return 3+*i;
+  if(true && true || true || !(i==NULL)){
+    if(i == NULL){
+        int x = 0;
+        bool f= NULL;
+        return x+(f==true);
+    }
+    else{
+        return x;
+    }
+  }
+}

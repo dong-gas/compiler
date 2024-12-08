@@ -1,0 +1,10 @@
+let f = fun x -> x + x in
+let f x =
+  if x < 1 then 1 else f (x - 1) + f (x -1)
+in
+let a = f 10 in
+let rec f x =
+  if x < 1 then 1 else f (x - 1) + f (x -1)
+in
+let b = f 5 in
+a + b

@@ -1,0 +1,23 @@
+int f() {
+    int x = 1;
+    int y = 2;
+    int *px = &x;
+    int *py = &y;
+
+    int z;
+    z = px + py;
+    int i = true;
+    if(x){
+        i = x;
+    }
+    int *p = NULL;
+    if(NULL){
+      z = true || true<false;
+    }
+    if(1){
+      bool x = 3;
+    }
+    int q = x;
+
+    return *px;
+}

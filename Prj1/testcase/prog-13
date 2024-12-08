@@ -1,0 +1,8 @@
+int* f(){
+    int z = z;
+    int *x = NULL;
+    int *y = &x;
+    y = &x;
+    x = NULL;
+    return NULL;
+}
