@@ -151,11 +151,9 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       // 단순 cint, cbool이면 label 2개씩..
       match typ with
       | CInt ->
-          let l = createLabel ()
-          (symtab, [Label l] @ [Label l] @ [LocalAlloc (r, size)] @ [Label l] @ [Label l])
+          (symtab, [Label "trash"] @ [Label "trash"] @ [LocalAlloc (r, size)] @ [Label "trash"] @ [Label "trash"])
       | CBool ->
-          let l = createLabel ()
-          (symtab, [Label l] @ [Label l] @ [LocalAlloc (r, size)] @ [Label l] @ [Label l])
+          (symtab, [Label "trash"] @ [Label "trash"] @ [LocalAlloc (r, size)] @ [Label "trash"] @ [Label "trash"])
       | _ -> (symtab, [LocalAlloc (r, size)])
       
   | Define (_, typ, vname, exp) -> // ex) int x = 0;
@@ -165,11 +163,9 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       let r2, exp_instr_list = transExp symtab exp
       match typ with
       | CInt ->
-          let l = createLabel ()
-          (symtab, exp_instr_list @ [Label l] @ [Label l] @ [LocalAlloc(r1, size)] @ [Label l] @ [Label l] @[Store(Reg r2, r1)])
+          (symtab, exp_instr_list @ [Label "trash"] @ [Label "trash"] @ [LocalAlloc(r1, size)] @ [Label "trash"] @ [Label "trash"] @[Store(Reg r2, r1)])
       | CBool ->
-        let l = createLabel ()
-        (symtab, exp_instr_list @ [Label l] @ [Label l] @ [LocalAlloc(r1, size)] @ [Label l] @ [Label l] @[Store(Reg r2, r1)])
+        (symtab, exp_instr_list @ [Label "trash"] @ [Label "trash"] @ [LocalAlloc(r1, size)] @ [Label "trash"] @ [Label "trash"] @[Store(Reg r2, r1)])
       | _ ->(symtab, exp_instr_list @ [LocalAlloc(r1, size)] @ [Store(Reg r2, r1)])
   | Assign (_, vname, exp) -> // ex) x = 10;      
       let r1 = lookupVar symtab vname
@@ -226,8 +222,7 @@ let rec transArgs accSymTab accInstrs args =
       let size = sizeof argTyp
       // From now on, we can use 'r' as a pointer to access 'argName'.
       let accSymTab = Map.add argName (r, argTyp) accSymTab
-      let l = createLabel ()
-      let accInstrs = [Label l; Label l; LocalAlloc (r, size); Label l; Label l; Store (Reg argName, r)] @ accInstrs
+      let accInstrs = [Label "trash"; Label "trash"; LocalAlloc (r, size); Label "trash"; Label "trash"; Store (Reg argName, r)] @ accInstrs
       transArgs accSymTab accInstrs tailArgs
 
 // Translate input program into IR code.

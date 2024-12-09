@@ -141,7 +141,7 @@ def check(submit_files, point, tc_num, is_delay):
             result, cost = parse_output(output)
             perf_score = compute_perf_score(cost, base_cost, opt_cost)
             if ans.strip() == result:
-                grading_str += f"O 내 점수: {perf_score}, (min:{opt_cost}, max:{base_cost}, 내 cost 합:{cost})\n"
+                grading_str += f"맞았습니다!!  내 점수: {perf_score}, (min:{opt_cost}, max:{base_cost}, 내 cost 합:{cost})\n"
                 obtained_point += point_per_tc * perf_score / 100
             else:
                 grading_str += "X (0/100)\n"

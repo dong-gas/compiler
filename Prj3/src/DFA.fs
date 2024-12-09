@@ -9,8 +9,7 @@ open CFG
 // 각 CFG 노드에서 도달 가능한 Instr 집합..
 type RDSet = Set<Instr>
 
-// Register Set
-// String임
+// Register Set (String)
 type LASet = Set<Register> 
 
 // CFG:
@@ -105,8 +104,6 @@ module RDAnalysis =
     
     
 module LAAnalysis =
-  // Write your logic to compute reaching definition set for each CFG node.
-  // 각 노드마다 RDSet 저장한 Map 반환
   let run (cfg: CFG) : Map<int, LASet> =
 
     let NodeList = List.rev (getAllNodes cfg)
@@ -131,28 +128,27 @@ module LAAnalysis =
         | UnOp(r, _, _) -> Set.add r ret
         | BinOp(r, _, _, _) -> Set.add r ret            
         | Load(r, _) -> Set.add r ret
-        // | Store(_, r) -> Set.add r ret
         | _ -> ret
         
     let Use (instr: Instr) : LASet =
-        let ret = Set.empty<Register> // 빈 집합 생성
-        let addOperandToSet operand set =
-            match operand with
-            | Reg r -> Set.add r set // 피연산자가 레지스터라면 추가
-            | _ -> set // 레지스터가 아니면 그대로 반환
+        let ret = Set.empty<Register>
+        let addIfReg o set =
+            match o with
+            | Reg r -> Set.add r set
+            | _ -> set
         match instr with
-        | Set(_, o) -> addOperandToSet o ret
-        | UnOp(_, _, o) -> addOperandToSet o ret
+        | Set(_, o) -> addIfReg o ret
+        | UnOp(_, _, o) -> addIfReg o ret
         | BinOp(_, _, o1, o2) ->
-            let tmp = addOperandToSet o1 ret
-            addOperandToSet o2 tmp
+            let tmp = addIfReg o1 ret
+            addIfReg o2 tmp
         | Load (_, r) -> Set.add r ret
         | Store(o, r) ->
-            let tmp = addOperandToSet o ret
+            let tmp = addIfReg o ret
             Set.add r tmp
-        | GotoIf(o, _) -> addOperandToSet o ret            
-        | GotoIfNot(o, _) -> addOperandToSet o ret
-        | Ret(o) -> addOperandToSet o ret
+        | GotoIf(o, _) -> addIfReg o ret            
+        | GotoIfNot(o, _) -> addIfReg o ret
+        | Ret(o) -> addIfReg o ret
         | _ -> ret
             
             
@@ -170,37 +166,30 @@ module LAAnalysis =
         match list with
         | [] -> s
         | head :: tail ->
-            // let ret = Set.union s (Map.find head rd)
-            // union_set ret tail rd
-            // if not (Map.containsKey head rd) then
-            //     printfn "Warning: Key %d not found in Map. Defaulting to empty set." head
             let ret = 
                 if Map.containsKey head rd then
                     Set.union s (Map.find head rd)
                 else
-                    s // 존재하지 않으면 현재 집합 반환 (기본 동작)
+                    s
             union_set ret tail rd
             
 
     let rec iterate (currentLA: Map<int, LASet>) : Map<int, LASet> =
         let mutable updatedLA = currentLA
-        let mutable changed = false // 변경 여부 추적 플래그
+        let mutable changed = false
 
         for node in NodeList do
             let instr = getInstr node cfg
-            let suc = getSuccs node cfg // successor list
+            let suc = getSuccs node cfg
             let la_out_node = union_set Set.empty<Register> suc currentLA
             let la_in_node = f la_out_node instr
 
-            // 기존 값과 새로운 값을 비교하여 변경 여부 확인
             if not (Map.containsKey node updatedLA && updatedLA[node] = la_in_node) then
-                changed <- true // 변경 발생
+                changed <- true
                 updatedLA <- updatedLA.Add(node, la_in_node)
 
         if changed then
-            iterate updatedLA // 변경이 있다면 재귀 호출
+            iterate updatedLA
         else
-            updatedLA // 변경이 없으면 결과 반환
-            
-            
+            updatedLA
     iterate (in_init NodeList Map.empty<int, LASet>)

@@ -20,7 +20,8 @@ module ConstantFolding =
     | BinOp (r, LtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x < y then 1 else 0)))
     | BinOp (r, GeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x >= y then 1 else 0)))
     | BinOp (r, GtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x > y then 1 else 0)))
-    // gotoif 같은 거 바꿀 수 있을 듯
+    | GotoIf (Imm x, l) -> (true, if x <> 0 then Goto l  else Label "trashfolding")
+    | GotoIfNot (Imm x, l) -> (true, if x <> 0 then Label "trashfolding" else Goto l)
     | _ -> (false, instr)
 
   let run instrs =
@@ -129,7 +130,7 @@ module Mem2Reg =
                 if i < 0 || i >= List.length instrs then false
                 else 
                     match List.tryItem i instrs with
-                    | Some (Label _) -> true
+                    | Some (Label "trash") -> true
                     | _ -> false
             if (isLabel (index - 2) && isLabel (index - 1) && isLabel (index + 1) && isLabel (index + 2))
                 then Some reg else None
@@ -276,7 +277,7 @@ let rec optimizeLoop instrs =
       false
       then
           optimizeLoop instrs else instrs
-            // optimizeLoop instrs else instrs // 한 번만 돌게..
+            // instrs else instrs // 한 번만 돌게..
 
 // Optimize input IR code into faster version.
 let run (ir: IRCode) : IRCode =
