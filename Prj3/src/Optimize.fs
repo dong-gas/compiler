@@ -5,7 +5,6 @@ open IR
 open CFG
 open DFA
 
-
 module ConstantFolding =
   let foldConstant instr =
     match instr with
@@ -21,6 +20,7 @@ module ConstantFolding =
     | BinOp (r, LtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x < y then 1 else 0)))
     | BinOp (r, GeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x >= y then 1 else 0)))
     | BinOp (r, GtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x > y then 1 else 0)))
+    // gotoif 같은 거 바꿀 수 있을 듯
     | _ -> (false, instr)
 
   let run instrs =
@@ -114,16 +114,13 @@ module ConstantPropagation =
   //   (isOptimized, instrs)
     
 module Mem2Reg =
-  // 메모리 접근을 레지스터로 바꾸기...
-  // alloc 찾아..
   let run instrs =
     // 1. localalloc 찾아. ex) %t1 = alloc 4
     // 2. 그게 최적화 할 수 있는 놈인지 체크
     // 3. 있으면 localalloc 삭제하고
     // 4. store o, %t1 을 %t1 = o로 (set) 변경
-    // 5. %t2 = load %t1을 set
+    // 5. %t2 = load %t1을 set으로
     let cfg = CFG.make instrs
-    // (false, instrs)
     let can index instr instrs =
         match instr with
         | LocalAlloc (reg, _) ->
@@ -191,16 +188,95 @@ module Mem2Reg =
         (true, retlist)
 
 
+module DeadCodeElimination =
+  let run instrs =
+     let cfg = CFG.make instrs
+     let laSet = LAAnalysis.run cfg    
+     // 반복문 돌면서 la_out을 구해
+     let NodeList = List.rev (getAllNodes cfg)
+     let rec union_set (s: LASet) (list: int list) (rd: Map<int, LASet>) : LASet =
+        match list with
+        | [] -> s
+        | head :: tail ->
+            let ret = Set.union s (Map.find head rd)
+            union_set ret tail rd
+     
+     let mutable opt = false
+     let mutable retlist = []
+     for node in NodeList do
+        let instr = getInstr node cfg
+        let suc = getSuccs node cfg // suc list
+        let la_out_node = union_set Set.empty<Register> suc laSet
+        //let la_out_node = Map.find node laSet
+        match instr with
+        | Set(r, value) ->
+            // r이 laOutNode에 없으면 제거
+            if Set.contains r la_out_node then
+                retlist <- instr :: retlist
+            else
+                opt <- true
+            // la_out_node에 r있는지 확인해서 없으면
+            // for문 밖에서 let L = createLabel()
+            // 를 하고, instrs에서 이 instr을 Label L로 바꿔야 함.
+        | LocalAlloc(r, _) ->
+            // r이 laOutNode에 없으면 제거
+            if Set.contains r la_out_node then
+                retlist <- instr :: retlist
+            else
+                opt <- true
+        | UnOp(r, op, src) ->
+            // r이 laOutNode에 없으면 제거
+            if Set.contains r la_out_node then
+                retlist <- instr :: retlist
+            else
+                opt <- true
+        | BinOp(r, op, src1, src2) ->
+            // r이 laOutNode에 없으면 제거
+            if Set.contains r la_out_node then
+                retlist <- instr :: retlist
+            else
+                opt <- true
+        | Load(r, addr) ->
+            // r이 laOutNode에 없으면 제거
+            if Set.contains r la_out_node then
+                retlist <- instr :: retlist
+            else
+                opt <- true
+        | _ ->
+            // 기타 명령어는 그대로 유지
+            retlist <- instr :: retlist
+            
+        
+            
+     (opt, retlist)
+
 // You will have to run optimization iteratively, as shown below.
 let rec optimizeLoop instrs =
-  //printfn "haa..."
-  let cfg = CFG.make instrs
+  // mem 2 reg
   let m2r, instrs = Mem2Reg.run instrs
+  
+  // ConstantPropagation
   // let cp, instrs = ConstantPropagation.run instrs
+  
+  // ConstantFolding
   let cf, instrs = ConstantFolding.run instrs
-  //if cp || cf then optimizeLoop instrs else instrs
-  if m2r || cf then optimizeLoop instrs else instrs
-  // if cf then optimizeLoop instrs else instrs
+  
+  // DeadCodeElimination 
+  let dce, instrs = DeadCodeElimination.run instrs
+  // if dce then
+  //     printf("wow")
+  // else
+  //     printf("no~")
+  
+  if
+      m2r ||
+      // cp ||
+      cf ||
+      dce ||
+      false
+      then
+          optimizeLoop instrs else instrs
+            // optimizeLoop instrs else instrs // 한 번만 돌게..
 
 // Optimize input IR code into faster version.
 let run (ir: IRCode) : IRCode =

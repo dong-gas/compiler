@@ -48,3 +48,4 @@
 /Users/dong_gas/Desktop/기초컴파일러구성/Prj3/bin/Debug/net8.0/tr/FSharp.Core.resources.dll
 /Users/dong_gas/Desktop/기초컴파일러구성/Prj3/bin/Debug/net8.0/zh-Hans/FSharp.Core.resources.dll
 /Users/dong_gas/Desktop/기초컴파일러구성/Prj3/bin/Debug/net8.0/zh-Hant/FSharp.Core.resources.dll
+/Users/dong_gas/Desktop/기초컴파일러구성/Prj3/obj/Debug/net8.0/Optimize.sourcelink.json

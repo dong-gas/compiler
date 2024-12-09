@@ -45,7 +45,9 @@ module CFG =
         | Goto l -> [Map.find l labelMap]
         | GotoIf (_, l) | GotoIfNot(_, l) -> [Map.find l labelMap; idx + 1]
         | Ret _ -> []
-        | _ -> [idx + 1]
+        // | _ -> [idx + 1]
+        | _ -> if tailInstrs = [] then [] else [idx + 1]
+
       let succMap = Map.add idx succs succMap
       let predMap = updatePreds idx succs predMap
       findEdges labelMap tailInstrs (idx + 1) (succMap, predMap)
