@@ -150,10 +150,10 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       
       // 단순 cint, cbool이면 label 2개씩..
       match typ with
-      | CInt ->
+      | CInt | CBool ->
+          // let tlabel = createLabel ()
           (symtab, [Label "trash"] @ [Label "trash"] @ [LocalAlloc (r, size)] @ [Label "trash"] @ [Label "trash"])
-      | CBool ->
-          (symtab, [Label "trash"] @ [Label "trash"] @ [LocalAlloc (r, size)] @ [Label "trash"] @ [Label "trash"])
+          // (symtab, [Label tlabel] @ [Label tlabel] @ [LocalAlloc (r, size)] @ [Label tlabel] @ [Label tlabel])
       | _ -> (symtab, [LocalAlloc (r, size)])
       
   | Define (_, typ, vname, exp) -> // ex) int x = 0;
@@ -162,10 +162,9 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       let symtab = Map.add vname (r1, typ) symtab
       let r2, exp_instr_list = transExp symtab exp
       match typ with
-      | CInt ->
-          (symtab, exp_instr_list @ [Label "trash"] @ [Label "trash"] @ [LocalAlloc(r1, size)] @ [Label "trash"] @ [Label "trash"] @[Store(Reg r2, r1)])
-      | CBool ->
-        (symtab, exp_instr_list @ [Label "trash"] @ [Label "trash"] @ [LocalAlloc(r1, size)] @ [Label "trash"] @ [Label "trash"] @[Store(Reg r2, r1)])
+      | CInt | CBool ->
+          let tlabel = createLabel ()
+          (symtab, exp_instr_list @ [Label tlabel] @ [Label tlabel] @ [LocalAlloc(r1, size)] @ [Label tlabel] @ [Label tlabel] @[Store(Reg r2, r1)])
       | _ ->(symtab, exp_instr_list @ [LocalAlloc(r1, size)] @ [Store(Reg r2, r1)])
   | Assign (_, vname, exp) -> // ex) x = 10;      
       let r1 = lookupVar symtab vname

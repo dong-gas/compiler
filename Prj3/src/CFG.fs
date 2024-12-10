@@ -55,12 +55,7 @@ module CFG =
   // Construct a CFG from the provided instruction list.
   let make (instrs: Instr list): CFG =
     let instrMap, labelMap = scanInstrs instrs 0 (Map.empty, Map.empty)
-    let succMap, predMap = findEdges labelMap instrs 0 (Map.empty, Map.empty)  
-    // instrMap
-    // |> Map.iter (fun key instr -> 
-    //     printfn "Key: %d, Instr: %A" key instr
-    // )
-    
+    let succMap, predMap = findEdges labelMap instrs 0 (Map.empty, Map.empty)      
     (instrMap, succMap, predMap)
   
   // Return the list of all the node IDs in the CFG.
