@@ -109,7 +109,6 @@ module ConstantPropagation =
     
 module Mem2Reg =
   let run instrs =
-    let cfg = CFG.make instrs
     let trash = "trash"
     let can index instr instrs =
         match instr with
