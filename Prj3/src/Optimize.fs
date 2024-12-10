@@ -85,7 +85,13 @@ module ConstantPropagation =
                 match can o1, can o2 with
                 | Some c1, Some c2 ->
                     opt <- true
-                    retlist <- retlist @ [BinOp(r, op, Imm c1, Imm c2)] // 상수 대체
+                    retlist <- retlist @ [BinOp(r, op, Imm c1, Imm c2)]
+                | Some c1, None ->
+                    opt <- true
+                    retlist <- retlist @ [BinOp(r, op, Imm c1, o2)]
+                | None, Some c2 ->
+                    opt <- true
+                    retlist <- retlist @ [BinOp(r, op, o1, Imm c2)] 
                 | _ ->
                     retlist <- retlist @ [instr]
             | Store(o, r) ->
