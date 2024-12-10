@@ -33,8 +33,7 @@ module ConstantFolding =
 module ConstantPropagation =
     let run instrs =
         let cfg = CFG.make instrs
-        // printfn "here1"
-        let rdMap = RDAnalysis.run cfg // in이 아닌 out set을 가지고 있음 주의...
+        let rdMap = RDAnalysis.run cfg
         let NodeList = getAllNodes cfg
         let rec union_set (s: RDSet) (list: int list) (rd: Map<int, RDSet>) : RDSet =
             match list with
@@ -44,43 +43,31 @@ module ConstantPropagation =
                 union_set ret tail rd
         let mutable opt = false 
         let mutable retlist = []
-        // printfn "here2"
         for node in NodeList do
             let instr = getInstr node cfg
             let pre = getPreds node cfg
             let rd_in_node = union_set Set.empty<Instr> pre rdMap
-            let can (o: Operand) : Option<int> =
-                // `rd_in_node`에서 `o`와 관련된 정의만 필터링
+            let can o: _ =
                 let related_defs =
                       rd_in_node |> Set.filter (fun d -> match d with
                                                           | Set(r, _) when Reg r = o -> true
                                                           | _ -> false)
-                // 정의된 횟수가 1개이고, 그 값이 상수인지 확인
                 match Set.toList related_defs with
                 | [Set(_, Imm c)] -> Some c
                 | _ -> None
-            match instr with
-            // o(operand)가 register이면서..
-            // rd_in_node라는 set에 그 o(register)가 정의되는 횟수(set만 봐도 됨) 가 1개면.. 바꿀 수 있음
-            // 
-            // BinOp, UnOp는 folding에서 최적화 되고 나면 다시 돌면서 되겠지
-            // Load는 mem2Reg에서 될 듯..
-            // 그 register가 상수면 
-            
+            match instr with            
             | Set(r, o) ->
                 match can o with
                 | Some c ->
                     opt <- true
                     retlist <- retlist @ [Set(r, Imm c)]
-                | None ->
-                    retlist <- retlist @ [instr]
+                | None -> retlist <- retlist @ [instr]
             | UnOp(r, un, o) ->
                 match can o with
                 | Some c ->
                     opt <- true
                     retlist <- retlist @ [UnOp(r, un, Imm c)]
-                | None ->
-                    retlist <- retlist @ [instr]
+                | None -> retlist <- retlist @ [instr]
             | BinOp(r, op, o1, o2) ->
                 match can o1, can o2 with
                 | Some c1, Some c2 ->
@@ -92,43 +79,38 @@ module ConstantPropagation =
                 | None, Some c2 ->
                     opt <- true
                     retlist <- retlist @ [BinOp(r, op, o1, Imm c2)] 
-                | _ ->
-                    retlist <- retlist @ [instr]
+                | _ -> retlist <- retlist @ [instr]
             | Store(o, r) ->
                 match can o with
                 | Some c ->
                     opt <- true
                     retlist <- retlist @ [Store(Imm c, r)]
-                | None ->
-                    retlist <- retlist @ [instr]
+                | None -> retlist <- retlist @ [instr]
             | GotoIf(o, l) ->
                 match can o with
                 | Some c ->
                     opt <- true
                     retlist <- retlist @ [GotoIf(Imm c, l)]
-                | None ->
-                    retlist <- retlist @ [instr]
+                | None -> retlist <- retlist @ [instr]
             | GotoIfNot(o, l) ->
                 match can o with
                 | Some c ->
                     opt <- true
                     retlist <- retlist @ [GotoIfNot(Imm c, l)]
-                | None ->
-                    retlist <- retlist @ [instr]
+                | None -> retlist <- retlist @ [instr]
             | Ret o ->
                 match can o with
                 | Some c ->
                     opt <- true
                     retlist <- retlist @ [Ret(Imm c)]
-                | None ->
-                    retlist <- retlist @ [instr]
+                | None -> retlist <- retlist @ [instr]
             | _ -> retlist <- retlist @ [instr]
-        // printfn "here3"
         (opt, retlist)
     
 module Mem2Reg =
   let run instrs =
     let cfg = CFG.make instrs
+    let trash = "trash"
     let can index instr instrs =
         match instr with
         | LocalAlloc (reg, _) ->
@@ -136,9 +118,9 @@ module Mem2Reg =
                 if i < 0 || i >= List.length instrs then false
                 else 
                     match List.tryItem i instrs with
-                    | Some (Label "trash") -> true
+                    | Some (Label l) when l = trash -> true
                     | _ -> false
-            if (isLabel (index - 2) && isLabel (index - 1) && isLabel (index + 1) && isLabel (index + 2))
+            if (isLabel (index - 1) && isLabel (index + 1))
                 then Some reg else None
         | _ -> None
     
@@ -222,7 +204,7 @@ module DeadCodeElimination =
 
 // You will have to run optimization iteratively, as shown below.
 let rec optimizeLoop instrs =
-  // mem 2 reg
+  // Mem2Reg
   let m2r, instrs = Mem2Reg.run instrs
   
   // ConstantFolding
@@ -238,8 +220,7 @@ let rec optimizeLoop instrs =
       m2r ||
       cf ||
       cp ||
-      dce ||
-      false
+      dce
       then
           optimizeLoop instrs else instrs
           // instrs else instrs // 한 번만 돌게..
