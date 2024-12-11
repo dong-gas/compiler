@@ -1,0 +1,16 @@
+bool f(int x) {  
+  int i;  
+  bool b;  
+  int *pi = &i;  
+  bool *pb = &b;  
+  
+  *pi = x;  
+  *pb = *pi < 10;  
+  if(*pb) {
+    i = *pi + 5;  
+  }
+  
+  *pi = i + 5;  
+  
+  return i;  
+}

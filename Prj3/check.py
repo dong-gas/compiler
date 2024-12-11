@@ -122,6 +122,7 @@ def check(submit_files, point, tc_num, is_delay):
     binary = path.join(ROOT_DIR, BUILD_DIRNAME, BINARY_NAME)
     tc_dir = path.join(ROOT_DIR, TESTCASE_DIRNAME)
     for i in range(tc_num):
+        grading_str += f"테케{i+1}:  "
         prog_path = path.join(tc_dir, "prog-%d" % (i + 1))
         input_path = path.join(tc_dir, "inp-%d" % (i + 1))
         cost_path = path.join(tc_dir, "cost-%d" % (i + 1))

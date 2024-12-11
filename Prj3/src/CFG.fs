@@ -47,7 +47,6 @@ module CFG =
         | Ret _ -> []
         // | _ -> [idx + 1]
         | _ -> if tailInstrs = [] then [] else [idx + 1]
-
       let succMap = Map.add idx succs succMap
       let predMap = updatePreds idx succs predMap
       findEdges labelMap tailInstrs (idx + 1) (succMap, predMap)

@@ -1,0 +1,12 @@
+int g(int x, int y) {
+  int* a = &x;
+  int* b = &y;
+
+  if(*b) {
+  	return y; 
+  }
+  else {
+  	return x;
+  }
+  
+}

@@ -13,7 +13,10 @@ module ConstantFolding =
     | BinOp (r, AddOp, Imm x, Imm y) -> (true, Set (r, Imm (x + y)))
     | BinOp (r, SubOp, Imm x, Imm y) -> (true, Set (r, Imm (x - y)))
     | BinOp (r, MulOp, Imm x, Imm y) -> (true, Set (r, Imm (x * y)))
-    | BinOp (r, DivOp, Imm x, Imm y) -> (true, Set (r, Imm (x / y)))
+    | BinOp (r, DivOp, Imm x, Imm y) ->
+        match y with
+        | 0 -> (false, instr)
+        | _ -> (true, Set (r, Imm (x / y)))
     | BinOp (r, EqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x = y then 1 else 0)))
     | BinOp (r, NeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x <> y then 1 else 0)))
     | BinOp (r, LeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x <= y then 1 else 0)))
@@ -21,7 +24,7 @@ module ConstantFolding =
     | BinOp (r, GeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x >= y then 1 else 0)))
     | BinOp (r, GtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x > y then 1 else 0)))
     | GotoIf (Imm x, l) -> (true, if x <> 0 then Goto l else Label "trashfolding")
-    | GotoIfNot (Imm x, l) -> (true, if x <> 0 then Label "trashfolding" else Goto l)
+    | GotoIfNot (Imm x, l) -> (true, if x = 0 then Goto l else Label "trashfolding")
     | _ -> (false, instr)
 
   let run instrs =
@@ -30,10 +33,12 @@ module ConstantFolding =
     let isOptimized = List.contains true flags
     (isOptimized, instrs)
     
+    
 module ConstantPropagation =
     let run instrs =
         let cfg = CFG.make instrs
         let rdMap = RDAnalysis.run cfg
+        // printf "%A" rdMap
         let NodeList = getAllNodes cfg
         let rec union_set (s: RDSet) (list: int list) (rd: Map<int, RDSet>) : RDSet =
             match list with
@@ -47,13 +52,23 @@ module ConstantPropagation =
             let instr = getInstr node cfg
             let pre = getPreds node cfg
             let rd_in_node = union_set Set.empty<Instr> pre rdMap
+            let mutable one = false
             let can o: _ =
                 let related_defs =
                       rd_in_node |> Set.filter (fun d -> match d with
                                                           | Set(r, _) when Reg r = o -> true
+                                                          | LocalAlloc(r, _) when Reg r = o ->
+                                                              one <- false
+                                                              false
+                                                          | UnOp(r, _, _) when Reg r = o ->
+                                                              one <- false
+                                                              false
+                                                          | BinOp(r, _, _, _) when Reg r = o ->
+                                                              one <- false
+                                                              false
                                                           | _ -> false)
                 match Set.toList related_defs with
-                | [Set(_, Imm c)] -> Some c
+                | [Set(_, Imm c)] -> if one then Some c else None
                 | _ -> None
             match instr with            
             | Set(r, o) ->
@@ -153,9 +168,7 @@ module Mem2Reg =
         let remove_localAlloc (lst: Instr list) =
             lst |> List.filter (fun x ->
                     match x with
-                    | LocalAlloc(reg, _) ->
-                        if Some reg = R then false
-                        else true
+                    | LocalAlloc(reg, _) -> Some reg <> R
                     | _ -> true
                 )
         let retlist = instrs
@@ -203,26 +216,32 @@ module DeadCodeElimination =
 
 // You will have to run optimization iteratively, as shown below.
 let rec optimizeLoop instrs =
+  
   // Mem2Reg
-  let m2r, instrs = Mem2Reg.run instrs
+  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
+  // let m2r, instrs = Mem2Reg.run instrs
   
   // ConstantFolding
-  let cf, instrs = ConstantFolding.run instrs
+  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
+  // let cf, instrs = ConstantFolding.run instrs
   
   // ConstantPropagation
+  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
   let cp, instrs = ConstantPropagation.run instrs
   
-  // DeadCodeElimination 
-  let dce, instrs = DeadCodeElimination.run instrs
+  // DeadCodeElimination
+  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
+  // let dce, instrs = DeadCodeElimination.run instrs
   
   if
-      m2r ||
-      cf ||
+      // m2r ||
+      // cf || 
       cp ||
-      dce
+      // dce ||
+      false
       then
-          optimizeLoop instrs else instrs
-          // instrs else instrs // 한 번만 돌게..
+          // optimizeLoop instrs else instrs
+          instrs else instrs // 한 번만 돌게..
     
 // Optimize input IR code into faster version.
 let run (ir: IRCode) : IRCode =

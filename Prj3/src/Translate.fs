@@ -62,7 +62,7 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
           match (lookupType symtab vname) with
           | CBoolArr _-> 1
           | CIntArr _ -> 4
-          | _ -> 100
+          | _ -> 10000
       let r = createRegName ()
       let tmp = createRegName ()
       let mul_instr = BinOp(tmp, MulOp, Reg idx_r, Imm sz)
@@ -125,17 +125,13 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
   | And (exp1, exp2) -> // &&
       let r1, exp_instr_list_1 = transExp symtab exp1
       let r2, exp_instr_list_2 = transExp symtab exp2
-      let reg = createRegName ()
-      let false_label = createLabel ()
-      let end_label = createLabel ()
-      (reg, exp_instr_list_1 @ [GotoIfNot(Reg r1, false_label)] @ exp_instr_list_2 @ [Set(reg, Reg r2)] @ [Goto(end_label)] @ [Label false_label] @ [Set(reg, Imm 0)] @ [Label end_label])
+      let L = createLabel ()
+      (r2, exp_instr_list_1 @ [Set(r2, Imm 0)] @ [GotoIfNot(Reg r1, L)] @ exp_instr_list_2 @ [Label L])
   | Or (exp1, exp2) -> // ||
       let r1, exp_instr_list_1 = transExp symtab exp1
       let r2, exp_instr_list_2 = transExp symtab exp2
-      let reg = createRegName ()
-      let true_label = createLabel ()
-      let end_label = createLabel ()
-      (reg, exp_instr_list_1 @ [GotoIf(Reg r1, true_label)] @ exp_instr_list_2 @ [Set(reg, Reg r2)] @ [Goto(end_label)] @ [Label true_label] @ [Set(reg, Imm 1)] @ [Label end_label])
+      let L = createLabel ()
+      (r2, exp_instr_list_1 @ [Set (r2,Imm 1)] @ [GotoIf(Reg r1, L)] @ exp_instr_list_2 @ [Label L])
   | Not exp -> // !E
       let r, exp_instr_list = transExp symtab exp
       let reg = createRegName ()
@@ -180,7 +176,7 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
           match (lookupType symtab vname) with
           | CBoolArr _-> 1
           | CIntArr _ -> 4
-          | _ -> 100
+          | _ -> 10000
       let r = createRegName ()
       let mul_instr = [BinOp(r, MulOp, Reg idx_r, Imm sz)]
       let add_instr = [BinOp(r, AddOp, Reg first_reg, Reg r)]
