@@ -5,7 +5,8 @@ open IR
 open CFG
 
 type RDSet = Set<Instr>
-type LASet = Set<Register> 
+type LASet = Set<Register>
+type AESet = Set<Instr>
 
 module RDAnalysis =
   let run (cfg: CFG) : Map<int, RDSet> =
@@ -70,6 +71,7 @@ module RDAnalysis =
 
     iterate (out_init NodeList Map.empty<int, RDSet>)
     
+///////////////////////////////////////////////////////////////////////////////////////////////////
     
 module LAAnalysis =
   let run (cfg: CFG) : Map<int, LASet> =
@@ -126,11 +128,7 @@ module LAAnalysis =
         match list with
         | [] -> s
         | head :: tail ->
-            let ret = 
-                if Map.containsKey head rd then
-                    Set.union s (Map.find head rd)
-                else
-                    s
+            let ret = Set.union s (Map.find head rd)
             union_set ret tail rd
 
     let rec iterate (currentLA: Map<int, LASet>) : Map<int, LASet> =
@@ -151,3 +149,94 @@ module LAAnalysis =
         else updatedLA    
 
     iterate (in_init NodeList Map.empty<int, LASet>)
+    
+///////////////////////////////////////////////////////////////////////////////////////////////////    
+
+module AEAnalysis =
+  let run (cfg: CFG) : Map<int, AESet> =
+    let NodeList = getAllNodes cfg
+    let mutable U = Set.empty<Instr>
+    for node in NodeList do
+        let instr = getInstr node cfg
+        U <- Set.add instr U
+                    
+    let rec out_init (list: int list) (map: Map<int, AESet>) : Map<int, AESet> =
+        match list with
+        | [] -> map
+        | head :: tail ->
+            let updatedMap = map.Add(head, U)
+            out_init tail updatedMap
+     
+    let Del (reg: Register) (ae_set: AESet) : AESet =
+        let check (ins: Instr): bool =
+            // ins에 r이 있으면 false 리턴
+            match ins with
+            | Set(rr, o1) ->
+                match o1 with
+                | Reg regOp -> (reg <> rr && reg <> regOp)
+                |  _ -> reg <> rr
+            | UnOp (rr, _, o) ->
+                match o with
+                | Reg regOp -> reg <> rr && reg <> regOp
+                | _ -> reg <> rr
+            | BinOp (rr, _, o1, o2) ->
+                let op1Check =
+                    match o1 with
+                    | Reg regOp -> reg <> regOp
+                    | _ -> true
+                let op2Check =
+                    match o2 with
+                    | Reg regOp -> reg <> regOp
+                    | _ -> true
+                reg <> rr && op1Check && op2Check
+            | _-> false
+        let ret = ae_set |> Set.filter (fun instr -> check instr)            
+        ret         
+
+    let f (ae_out: AESet) (instr: Instr) : AESet = // ae_out - Del(instr) + Ins(instr)
+        let ret = ae_out
+        match instr with
+        | Set(r, o) ->
+            let ret = Del r ret
+            let ret = Set.add instr ret
+            ret
+        | UnOp(r, un, o) ->
+            let ret = Del r ret
+            let ret = Set.add instr ret
+            ret
+        | BinOp(r, bin, o1, o2) ->
+            let ret = Del r ret
+            let ret = Set.add instr ret
+            ret
+        | Load (_, r) -> Del r ret
+        | LocalAlloc (r, sz) -> Del r ret
+        | _ -> ret
+        
+    let rec intersection_set (s: AESet) (list: int list) (ae: Map<int, AESet>) : AESet =
+        match list with
+        | [] -> s
+        | head :: tail ->
+            let ret = Set.intersect s (Map.find head ae)
+            intersection_set ret tail ae
+
+    let rec iterate (currentAE: Map<int, AESet>) : Map<int, AESet> =
+        let mutable updatedAE = currentAE
+        let mutable changed = false
+
+        for node in NodeList do
+            let instr = getInstr node cfg
+            let pre = getPreds node cfg
+            let ae_in_node =
+                match pre with
+                | [] -> intersection_set Set.empty<Instr> pre currentAE
+                | _ -> intersection_set U pre currentAE
+            let ae_out_node = f ae_in_node instr
+
+            if not (Map.containsKey node updatedAE && updatedAE[node] = ae_out_node) then
+                changed <- true
+                updatedAE <- updatedAE.Add(node, ae_out_node)
+
+        if changed then iterate updatedAE
+        else updatedAE    
+    
+    iterate (out_init NodeList Map.empty<int, AESet>)

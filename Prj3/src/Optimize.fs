@@ -71,7 +71,6 @@ module ConstantPropagation =
                 | _ -> None
                 
             match instr with
-            // 문제 있음. TLE남. i = i + 1 쪽인가...
             | Set(r, o) ->
                 match can o with
                 | Some c ->
@@ -218,6 +217,69 @@ module DeadCodeElimination =
         | _ -> retlist <- instr :: retlist
      (opt, retlist)
 
+module CopyPropagation =
+  let run instrs =
+    let mutable opt = false
+    
+    (opt, instrs)
+    
+module CommonSubexpressionElimination =
+    let run instrs =
+        let cfg = CFG.make instrs
+        let AESet = AEAnalysis.run cfg    
+        let NodeList = getAllNodes cfg
+        let rec intersection_set (s: AESet) (list: int list) (ae: Map<int, AESet>) : AESet =
+            match list with
+            | [] -> s
+            | head :: tail ->
+                let ret = Set.intersect s (Map.find head ae)
+                intersection_set ret tail ae
+        let mutable opt = false
+        let mutable retlist = []
+        let mutable U = Set.empty<Instr>
+        for node in NodeList do
+            let instr = getInstr node cfg
+            U <- Set.add instr U
+            
+        for node in NodeList do
+            let instr = getInstr node cfg
+            let pre = getPreds node cfg 
+            let ae_out_node = intersection_set U pre AESet
+            match instr with
+            | UnOp(r, un, o) ->
+                let get_same_exp = 
+                    ae_out_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | UnOp(sr, sun, so) -> sun = un && so = o
+                        | _ -> false
+                        )
+                match Set.toList get_same_exp with
+                | [UnOp(sr, _, _)] ->
+                    opt <- true
+                    retlist <- Set(r, Reg sr) :: retlist
+                | _ ->retlist <- instr :: retlist
+            | BinOp(r, bin, o1, o2) ->
+                let get_same_exp = 
+                    ae_out_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | BinOp(sr, sbin, so1, so2) -> sbin = bin && so1 = o1 && so2 = o2
+                        | _ -> false
+                        )
+                match Set.toList get_same_exp with
+                | [BinOp(sr, _, _, _)] ->
+                    opt <- true
+                    retlist <- Set(r, Reg sr) :: retlist
+                | _ ->retlist <- instr :: retlist
+            // | Set(o, r) -> // r = o
+                // o가 우변인 걸 찾아서 그 좌변으로 대체..
+                // 이건 copy prop에서 해야겠구나. 여기선 의미가 없구나...?
+            | _ -> retlist <- instr :: retlist
+            
+        // if opt then printfn "HELLO"
+        (opt, List.rev retlist)
+
 // You will have to run optimization iteratively, as shown below.
 let rec optimizeLoop instrs =
   
@@ -227,13 +289,19 @@ let rec optimizeLoop instrs =
   
   // ConstantFolding
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
-  let cf, instrs = ConstantFolding.run instrs
+  let cons_fold, instrs = ConstantFolding.run instrs
   
   // ConstantPropagation
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
+  let cons_prop, instrs = ConstantPropagation.run instrs
+  
+  // CopyPropagation
   // XXXXXXXXXXXXXXXXXXXXXXXXXXX
-  let cp, instrs = ConstantPropagation.run instrs
-  // m2r이후에 여기서 문제가 있는 듯
+  // let copy_prop, instrs = CopyPropagation.run instrs
+  
+  // CommonSubexpressionElimination
+  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
+  let cse, instrs = CommonSubexpressionElimination.run instrs
   
   // DeadCodeElimination
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
@@ -241,8 +309,10 @@ let rec optimizeLoop instrs =
   
   if
       m2r ||
-      cf || 
-      cp ||
+      cons_fold ||
+      cons_prop || 
+      // copy_prop ||
+      cse ||
       dce ||
       false
       then

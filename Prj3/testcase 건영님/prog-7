@@ -1,0 +1,7 @@
+bool main(int i, bool b) {  
+    bool *c = &b;  
+    bool tmp = !b;  
+    *c = tmp;  
+  
+    return *c;  
+}
