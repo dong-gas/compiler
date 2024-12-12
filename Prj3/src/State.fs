@@ -38,7 +38,11 @@ module Memory =
   let read (addr: MemAddr) (mem: Memory): int =
     let memBrk, map = mem
     if addr < 0 ||  addr >= memBrk || not (Map.containsKey addr map)
-    then raise (RuntimeError "Invalid memory access (read)")
+    then
+      if addr < 0 then raise (RuntimeError "Invalid memory access1 (read)")
+      else
+        if addr >= memBrk then raise (RuntimeError "Invalid memory access2 (read)") 
+        else raise (RuntimeError "Invalid memory access3 (read)")
     else Map.find addr map
 
   let update (addr: MemAddr) (v: int) (mem: Memory) : Memory =

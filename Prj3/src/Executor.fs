@@ -43,7 +43,9 @@ let execInstr labelMap instr regMap mem pc =
       Running (RegMap.bind r (binOp opTyp v1 v2) regMap, mem, pc + 1)
   | Load (r1, r2) ->
       let addr = RegMap.lookup r2 regMap
+      // printfn "%A %A" r1 r2
       let v = Memory.read addr mem
+      // printfn "%A %A" r1 r2
       Running (RegMap.bind r1 v regMap, mem, pc + 1)
   | Store (oprnd, r) ->
       let v = evalOperand oprnd regMap

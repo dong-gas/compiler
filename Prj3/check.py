@@ -122,7 +122,7 @@ def check(submit_files, point, tc_num, is_delay):
     binary = path.join(ROOT_DIR, BUILD_DIRNAME, BINARY_NAME)
     tc_dir = path.join(ROOT_DIR, TESTCASE_DIRNAME)
     for i in range(tc_num):
-        grading_str += f"테케{i+1}:  "
+        grading_str += f"테케{i+1}: "
         prog_path = path.join(tc_dir, "prog-%d" % (i + 1))
         input_path = path.join(tc_dir, "inp-%d" % (i + 1))
         cost_path = path.join(tc_dir, "cost-%d" % (i + 1))
@@ -142,7 +142,7 @@ def check(submit_files, point, tc_num, is_delay):
             result, cost = parse_output(output)
             perf_score = compute_perf_score(cost, base_cost, opt_cost)
             if ans.strip() == result:
-                grading_str += f"O 내 점수: {perf_score}, (min:{opt_cost}, max:{base_cost}, 내 cost 합:{cost})\n"
+                grading_str += f"O, 내 점수: {perf_score}, (min:{opt_cost}, max:{base_cost}, 내 cost 합:{cost})\n"
                 obtained_point += point_per_tc * perf_score / 100
             else:
                 grading_str += "X (0/100)\n"

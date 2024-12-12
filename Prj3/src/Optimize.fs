@@ -24,7 +24,7 @@ module ConstantFolding =
     | BinOp (r, GeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x >= y then 1 else 0)))
     | BinOp (r, GtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x > y then 1 else 0)))
     | GotoIf (Imm x, l) -> (true, if x <> 0 then Goto l else Label "trashfolding")
-    | GotoIfNot (Imm x, l) -> (true, if x = 0 then Goto l else Label "trashfolding")
+    | GotoIfNot (Imm x, l) -> (true, if x <> 0 then Label "trashfolding" else Goto l)
     | _ -> (false, instr)
 
   let run instrs =
@@ -38,7 +38,6 @@ module ConstantPropagation =
     let run instrs =
         let cfg = CFG.make instrs
         let rdMap = RDAnalysis.run cfg
-        // printf "%A" rdMap
         let NodeList = getAllNodes cfg
         let rec union_set (s: RDSet) (list: int list) (rd: Map<int, RDSet>) : RDSet =
             match list with
@@ -52,7 +51,7 @@ module ConstantPropagation =
             let instr = getInstr node cfg
             let pre = getPreds node cfg
             let rd_in_node = union_set Set.empty<Instr> pre rdMap
-            let mutable one = false
+            let mutable one = true
             let can o: _ =
                 let related_defs =
                       rd_in_node |> Set.filter (fun d -> match d with
@@ -134,8 +133,7 @@ module Mem2Reg =
                     match List.tryItem i instrs with
                     | Some (Label l) when l = trash -> true
                     | _ -> false
-            if (isLabel (index - 1) && isLabel (index + 1))
-                then Some reg else None
+            if (isLabel (index - 1) && isLabel (index + 1)) then Some reg else None
         | _ -> None
     
     let mutable R = None
@@ -152,7 +150,7 @@ module Mem2Reg =
             lst |> List.map (fun x ->
                         match x with
                         | Store(o, reg) ->
-                            if Some reg = R then Set (reg, o)
+                            if Some reg = R then Set(reg, o)
                             else x
                         | _ -> x 
                 )
@@ -160,10 +158,9 @@ module Mem2Reg =
             lst |> List.map (fun x ->
                         match x with
                         | Load(r1, reg) ->
-                            match R with
-                            | Some r when reg = r -> Set (r1, Reg r)
-                            | _ -> x
-                        | _ -> x 
+                            if Some reg = R then Set(r1, Reg reg)
+                            else x
+                        | _ -> x
                 )
         let remove_localAlloc (lst: Instr list) =
             lst |> List.filter (fun x ->
@@ -172,9 +169,10 @@ module Mem2Reg =
                     | _ -> true
                 )
         let retlist = instrs
+        let retlist = remove_localAlloc retlist
         let retlist = replace_load_to_set retlist
         let retlist = replace_store_to_set retlist
-        let retlist = remove_localAlloc retlist
+        
         (true, retlist)
 
 module DeadCodeElimination =
@@ -219,11 +217,11 @@ let rec optimizeLoop instrs =
   
   // Mem2Reg
   // XXXXXXXXXXXXXXXXXXXXXXXXXXX
-  // let m2r, instrs = Mem2Reg.run instrs
+  let m2r, instrs = Mem2Reg.run instrs
   
   // ConstantFolding
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
-  // let cf, instrs = ConstantFolding.run instrs
+  let cf, instrs = ConstantFolding.run instrs
   
   // ConstantPropagation
   // XXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -231,17 +229,17 @@ let rec optimizeLoop instrs =
   
   // DeadCodeElimination
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
-  // let dce, instrs = DeadCodeElimination.run instrs
+  let dce, instrs = DeadCodeElimination.run instrs
   
   if
-      // m2r ||
-      // cf || 
+      m2r ||
+      cf || 
       cp ||
-      // dce ||
+      dce ||
       false
       then
-          // optimizeLoop instrs else instrs
-          instrs else instrs // 한 번만 돌게..
+          optimizeLoop instrs else instrs
+          // instrs else instrs // 한 번만 돌게..
     
 // Optimize input IR code into faster version.
 let run (ir: IRCode) : IRCode =
