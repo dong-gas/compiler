@@ -11,18 +11,48 @@ module ConstantFolding =
     | UnOp (r, NegOp, Imm x) -> (true, Set (r, Imm (-x)))
     | UnOp (r, NotOp, Imm x) -> (true, Set (r, Imm (if x = 0 then 1 else 0)))
     | BinOp (r, AddOp, Imm x, Imm y) -> (true, Set (r, Imm (x + y)))
+    | BinOp (r, AddOp, Imm 0, y) -> (true, Set (r, y))
+    | BinOp (r, AddOp, x, Imm 0) -> (true, Set (r, x))
     | BinOp (r, SubOp, Imm x, Imm y) -> (true, Set (r, Imm (x - y)))
+    // | BinOp (r, SubOp, Imm 0, y) -> (true, Set (r, y)) //UnOp도 필요해서 복잡해지니까 걍 생략..
+    | BinOp (r, SubOp, x, Imm 0) -> (true, Set (r, x))
     | BinOp (r, MulOp, Imm x, Imm y) -> (true, Set (r, Imm (x * y)))
+    | BinOp (r, MulOp, Imm 1, y) -> (true, Set (r, y))
+    | BinOp (r, MulOp, x, Imm 1) -> (true, Set (r, x))
+    | BinOp (r, MulOp, Imm 0, _) -> (true, Set (r, Imm 0))
+    | BinOp (r, MulOp, _, Imm 0) -> (true, Set (r, Imm 0))
+    | BinOp (r, SubOp, x, y) -> // 이거는 Constant Folding이라고 보긴 힘들지만 코드 형식이 비슷해서 하는 최적화들
+        if x = y then (true, Set (r, Imm 0))
+        else (false, instr)
     | BinOp (r, DivOp, Imm x, Imm y) ->
         match y with
         | 0 -> (false, instr)
         | _ -> (true, Set (r, Imm (x / y)))
+    | BinOp (r, DivOp, x, Imm 1) -> (true, Set (r, x))
     | BinOp (r, EqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x = y then 1 else 0)))
+    | BinOp (r, EqOp, x, y) ->
+        if x = y then (true, Set (r, Imm 1))
+        else (false, instr)
     | BinOp (r, NeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x <> y then 1 else 0)))
+    | BinOp (r, NeqOp, x, y) ->
+        if x = y then (true, Set (r, Imm 0))
+        else (false, instr)
     | BinOp (r, LeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x <= y then 1 else 0)))
+    | BinOp (r, LeqOp, x, y) ->
+        if x = y then (true, Set (r, Imm 1))
+        else (false, instr)
     | BinOp (r, LtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x < y then 1 else 0)))
+    | BinOp (r, LtOp, x, y) ->
+        if x = y then (true, Set (r, Imm 0))
+        else (false, instr)
     | BinOp (r, GeqOp, Imm x, Imm y) -> (true, Set (r, Imm (if x >= y then 1 else 0)))
+    | BinOp (r, GeqOp, x, y) ->
+        if x = y then (true, Set (r, Imm 1))
+        else (false, instr)
     | BinOp (r, GtOp, Imm x, Imm y) -> (true, Set (r, Imm (if x > y then 1 else 0)))
+    | BinOp (r, GtOp, x, y) ->
+        if x = y then (true, Set (r, Imm 0))
+        else (false, instr)
     | GotoIf (Imm x, l) -> (true, if x <> 0 then Goto l else Label "trashfolding")
     | GotoIfNot (Imm x, l) -> (true, if x <> 0 then Label "trashfolding" else Goto l)
     | _ -> (false, instr)

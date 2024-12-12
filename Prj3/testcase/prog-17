@@ -1,12 +1,5 @@
-bool main(int n, int x) {
-  int i;
-  int s;
-
-  i = 0;
-  s = 0;
-  while (i <= n) {
-    s = s + i;
-    i = i + 1;
-  }
-  return (s > x);
-}
+int main(int n) {
+  int* i;
+  i = &n;
+  return *i;
+} 

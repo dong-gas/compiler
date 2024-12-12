@@ -1,17 +1,7 @@
-int f(int x, int y) {
-  int * i = NULL;
-  bool * b = NULL;
-  int n = 0;
-
-  if (x >= 2){
-    i = &y;
-    *i = *i*2;
-  }
-
-  if (!i) {
-    n = 1;
-    n = -n;
-  }
-  
-  return y + n;
+int g(int x, int y){
+  int *a = &x;
+  int *b;
+  b = &y;
+  *a = x + *a;
+  return *a + *b;
 }

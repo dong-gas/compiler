@@ -1,23 +1,15 @@
 int main(int i) {
-  bool loop_flag;
-
-  loop_flag = true;
-
-  while (loop_flag) {
-    loop_flag = false;
-    if (i < 0) {
-      i = i + 10;
-      if (i < 0) {
-        loop_flag = true;
-      } 
-    }
-    if (i >= 10) {
-      i = i - 10;
-      if (i >= 10) {
-        loop_flag = true;
-      } 
-    }
-  }
-
-  return i;
+  int x;
+  bool b;
+  bool c[4];
+  int y[10];
+  int *z;
+  int *zz;
+  c[1]=true;
+  z=&x;
+  x=5;
+  y[0]=2;
+  *z = 1;
+ 
+  return x;
 }

@@ -1,4 +1,4 @@
-int f(int x) {
+int f(int x, int y) {
   int i_arr[4];
   bool b_arr[5];
   int n;
@@ -10,17 +10,15 @@ int f(int x) {
   i_arr[2] = 3;
   i_arr[3] = 4;
 
-  b_arr[0] = false;
-  b_arr[1] = false;
-  b_arr[2] = false;
-  b_arr[3] = false;
-  b_arr[4] = false;
+  if (x < 4){
+    int n = 1;
+    i_arr[x] = i_arr[x] + n;
+    return i_arr[x];
+  }
 
-  b_arr[x] = true;
-
-  while(!b_arr[i]) {
-    n = n + i_arr[i];
-    i = i + 1;
+  else {
+    int n = 3;
+    i_arr[y] = n;
   }
 
   return n;

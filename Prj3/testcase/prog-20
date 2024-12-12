@@ -1,14 +1,19 @@
-int g(int x, bool y) {
-  int *a;
-  bool *b;
+int f(int x, int y) {
+  int i_arr[4];
+  bool b_arr[5];
+  int n;
+  int i = 0;
+  n = 0;
 
-  int t = 12;
+  i_arr[0] = 1;
+  i_arr[1] = 2;
+  i_arr[2] = 3;
+  i_arr[3] = 4;
 
-  a = &x;
-  b = &y;
-
-  if(*b){
-    *a = *a * 2;
+  while(i<x) {
+    i_arr[i] = i_arr[i] + y;
+    i = i + 1;
   }
-  return *a;
+
+  return i_arr[x-1];
 }
