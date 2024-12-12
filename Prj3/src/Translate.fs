@@ -4,7 +4,8 @@ open AST
 open IR
 open Helper
 
-let trash = "trash"
+let trash_above = "trash_above"
+let trash_below = "trash_below"
 
 // Symbol table is a mapping from identifier to a pair of register and type.
 // Register is recorded here will be containg the address of that variable.
@@ -145,7 +146,7 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       let symtab = Map.add vname (r, typ) symtab
       match typ with
       | CInt | CBool ->
-          (symtab, [Label trash] @ [LocalAlloc (r, size)] @ [Label trash])
+          (symtab, [Label trash_above] @ [LocalAlloc (r, size)] @ [Label trash_below])
       | _ -> (symtab, [LocalAlloc (r, size)])
       
   | Define (_, typ, vname, exp) -> // ex) int x = 0;
@@ -155,7 +156,7 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       let r2, exp_instr_list = transExp symtab exp
       match typ with
       | CInt | CBool ->
-          (symtab, exp_instr_list @ [Label trash] @ [LocalAlloc(r1, size)] @ [Label trash] @[Store(Reg r2, r1)])
+          (symtab, exp_instr_list @ [Label trash_above] @ [LocalAlloc(r1, size)] @ [Label trash_below] @ [Store(Reg r2, r1)])
       | _ ->(symtab, exp_instr_list @ [LocalAlloc(r1, size)] @ [Store(Reg r2, r1)])
   | Assign (_, vname, exp) -> // ex) x = 10;      
       let r1 = lookupVar symtab vname
@@ -213,7 +214,7 @@ let rec transArgs accSymTab accInstrs args =
       let size = sizeof argTyp
       // From now on, we can use 'r' as a pointer to access 'argName'.
       let accSymTab = Map.add argName (r, argTyp) accSymTab
-      let accInstrs = [Label trash; LocalAlloc (r, size); Label trash; Store (Reg argName, r)] @ accInstrs
+      let accInstrs = [Label trash_above; LocalAlloc (r, size); Label trash_below; Store (Reg argName, r)] @ accInstrs
       transArgs accSymTab accInstrs tailArgs
 
 // Translate input program into IR code.

@@ -75,70 +75,68 @@ module ConstantPropagation =
                 match can o with
                 | Some c ->
                     opt <- true
-                    retlist <- retlist @ [Set(r, Imm c)]
-                | None -> retlist <- retlist @ [instr]
+                    retlist <- Set(r, Imm c) :: retlist
+                | None -> retlist <- instr :: retlist
             | UnOp(r, un, o) ->
                 match can o with
                 | Some c ->
                     opt <- true
-                    retlist <- retlist @ [UnOp(r, un, Imm c)]
-                | None -> retlist <- retlist @ [instr]
+                    retlist <- UnOp(r, un, Imm c) :: retlist
+                | None -> retlist <- instr :: retlist
             | BinOp(r, op, o1, o2) ->
                 match can o1, can o2 with
                 | Some c1, Some c2 ->
                     opt <- true
-                    retlist <- retlist @ [BinOp(r, op, Imm c1, Imm c2)]
+                    retlist <- BinOp(r, op, Imm c1, Imm c2) :: retlist
                 | Some c1, None ->
                     opt <- true
-                    retlist <- retlist @ [BinOp(r, op, Imm c1, o2)]
+                    retlist <- BinOp(r, op, Imm c1, o2) :: retlist
                 | None, Some c2 ->
                     opt <- true
-                    retlist <- retlist @ [BinOp(r, op, o1, Imm c2)] 
-                | None, None -> retlist <- retlist @ [instr]
+                    retlist <- BinOp(r, op, o1, Imm c2) :: retlist 
+                | None, None -> retlist <- instr :: retlist
             | Store(o, r) ->
                 match can o with
                 | Some c ->
                     opt <- true
-                    retlist <- retlist @ [Store(Imm c, r)]
-                | None -> retlist <- retlist @ [instr]
+                    retlist <- Store(Imm c, r) :: retlist
+                | None -> retlist <- instr :: retlist
             | GotoIf(o, l) ->
                 match can o with
                 | Some c ->
                     opt <- true
-                    retlist <- retlist @ [GotoIf(Imm c, l)]
-                | None -> retlist <- retlist @ [instr]
+                    retlist <- GotoIf(Imm c, l) :: retlist
+                | None -> retlist <- instr :: retlist
             | GotoIfNot(o, l) ->
                 match can o with
                 | Some c ->
                     opt <- true
-                    retlist <- retlist @ [GotoIfNot(Imm c, l)]
-                | None -> retlist <- retlist @ [instr]
+                    retlist <- GotoIfNot(Imm c, l) :: retlist
+                | None -> retlist <- instr :: retlist
             | Ret o ->
                 match can o with
                 | Some c ->
                     opt <- true
-                    retlist <- retlist @ [Ret(Imm c)]
-                | None -> retlist <- retlist @ [instr]
-            | _ -> retlist <- retlist @ [instr]
-        (opt, retlist)
+                    retlist <- Ret(Imm c) :: retlist
+                | None -> retlist <- instr :: retlist
+            | _ -> retlist <- instr :: retlist
+        (opt, List.rev retlist)
 
     
 module Mem2Reg =
   let run instrs =
-    let trash = "trash"
+    let trash_above = "trash_above"
+    let trash_below = "trash_below"
     let can index instr instrs =
         match instr with
         | LocalAlloc (reg, _) ->
-            let isLabel i =
-                if i < 0 || i >= List.length instrs then false
-                else 
-                    match List.tryItem i instrs with
-                    | Some (Label l) when l = trash -> true
-                    | _ -> false
-            if (isLabel (index - 1) && isLabel (index + 1)) then
-                if not (List.exists (function Label l when l = reg -> true | _ -> false) instrs) then Some reg
-                else None
-            else None
+            if index - 1 < 0 || index + 1 >= List.length instrs then None
+            else
+                match (List.tryItem (index - 1) instrs, List.tryItem (index + 1) instrs) with
+                | Some (Label a), Some (Label b) when a = trash_above && b = trash_below ->
+                    if not (List.exists (function Label l when l = reg -> true | _ -> false) instrs) then Some reg
+                    else None
+                | _ -> None
         | _ -> None
     
     let mutable R = None
@@ -219,14 +217,130 @@ module DeadCodeElimination =
 
 module CopyPropagation =
   let run instrs =
+    let cfg = CFG.make instrs
+    let AESet = AEAnalysis.run cfg
     let mutable opt = false
+    let NodeList = getAllNodes cfg
+    let rec intersection_set (s: AESet) (list: int list) (ae: Map<int, AESet>) : AESet =
+        match list with
+        | [] -> s
+        | head :: tail ->
+            let ret = Set.intersect s (Map.find head ae)
+            intersection_set ret tail ae
+    let mutable retlist = []
+    let mutable U = Set.empty<Instr>
+    for node in NodeList do
+        let instr = getInstr node cfg
+        U <- Set.add instr U
     
-    (opt, instrs)
+    for node in NodeList do
+            let instr = getInstr node cfg
+            let pre = getPreds node cfg 
+            let ae_in_node =
+                match pre with
+                | [] -> intersection_set Set.empty<Instr> pre AESet
+                | _ -> intersection_set U pre AESet
+            // ae_in_node에 set이 있는지 확인 
+            match instr with
+            | Set (r, o) -> // r = o
+                let get_same_reg = 
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> o = Reg x
+                        | _ -> false
+                        )
+                match Set.toList get_same_reg with
+                | [Set(x, y)] ->
+                    opt <- true
+                    retlist <- Set(r, y) :: retlist
+                | _ -> retlist <- instr :: retlist
+            | UnOp (r, uop, o) -> // r = o
+                let get_same_reg = 
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> o = Reg x
+                        | _ -> false
+                        )
+                match Set.toList get_same_reg with
+                | [Set(x, y)] ->
+                    opt <- true
+                    retlist <- UnOp(r, uop, y) :: retlist
+                | _ -> retlist <- instr :: retlist
+            | BinOp (r, bop, o1, o2) -> // r = o
+                let get_same_reg_1 = 
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> o1 = Reg x
+                        | _ -> false
+                        )
+                let get_same_reg_2 = 
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> o2 = Reg x
+                        | _ -> false
+                        )
+                match Set.toList get_same_reg_1 with
+                | [Set(x, y)] ->
+                    opt <- true
+                    match Set.toList get_same_reg_2 with
+                    | [Set(p, q)] -> retlist <- BinOp(r, bop, y, q) :: retlist
+                    | _ -> retlist <- BinOp(r, bop, y, o2) :: retlist
+                | _ ->
+                    match Set.toList get_same_reg_2 with
+                    | [Set(p, q)] ->
+                        opt <- true
+                        retlist <- BinOp(r, bop, o1, q) :: retlist
+                    | _ -> retlist <- instr :: retlist
+            | GotoIf (o, l) ->
+                let get_same_reg = 
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> o = Reg x
+                        | _ -> false
+                        )
+                match Set.toList get_same_reg with
+                | [Set(x, y)] ->
+                    opt <- true
+                    retlist <- GotoIf(y ,l) :: retlist
+                | _ -> retlist <- instr :: retlist
+            | GotoIfNot (o, l) ->   
+                let get_same_reg = 
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> o = Reg x
+                        | _ -> false
+                        )
+                match Set.toList get_same_reg with
+                | [Set(x, y)] ->
+                    opt <- true
+                    retlist <- GotoIfNot(y ,l) :: retlist
+                | _ -> retlist <- instr :: retlist
+            | Ret o ->
+                let get_same_reg = 
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> o = Reg x
+                        | _ -> false
+                        )
+                match Set.toList get_same_reg with
+                | [Set(x, y)] ->
+                    opt <- true
+                    retlist <- Ret y :: retlist
+                | _ -> retlist <- instr :: retlist
+            | _ -> retlist <- instr :: retlist
+    (opt, List.rev retlist)
     
 module CommonSubexpressionElimination =
     let run instrs =
         let cfg = CFG.make instrs
-        let AESet = AEAnalysis.run cfg    
+        let AESet = AEAnalysis.run cfg
         let NodeList = getAllNodes cfg
         let rec intersection_set (s: AESet) (list: int list) (ae: Map<int, AESet>) : AESet =
             match list with
@@ -258,7 +372,7 @@ module CommonSubexpressionElimination =
                 | [UnOp(sr, _, _)] ->
                     opt <- true
                     retlist <- Set(r, Reg sr) :: retlist
-                | _ ->retlist <- instr :: retlist
+                | _ -> retlist <- instr :: retlist
             | BinOp(r, bin, o1, o2) ->
                 let get_same_exp = 
                     ae_out_node 
@@ -271,13 +385,8 @@ module CommonSubexpressionElimination =
                 | [BinOp(sr, _, _, _)] ->
                     opt <- true
                     retlist <- Set(r, Reg sr) :: retlist
-                | _ ->retlist <- instr :: retlist
-            // | Set(o, r) -> // r = o
-                // o가 우변인 걸 찾아서 그 좌변으로 대체..
-                // 이건 copy prop에서 해야겠구나. 여기선 의미가 없구나...?
+                | _ -> retlist <- instr :: retlist
             | _ -> retlist <- instr :: retlist
-            
-        // if opt then printfn "HELLO"
         (opt, List.rev retlist)
 
 // You will have to run optimization iteratively, as shown below.
@@ -296,11 +405,11 @@ let rec optimizeLoop instrs =
   let cons_prop, instrs = ConstantPropagation.run instrs
   
   // CopyPropagation
-  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
-  // let copy_prop, instrs = CopyPropagation.run instrs
-  
+  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
+  let copy_prop, instrs = CopyPropagation.run instrs
+ 
   // CommonSubexpressionElimination
-  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
+  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let cse, instrs = CommonSubexpressionElimination.run instrs
   
   // DeadCodeElimination
@@ -308,16 +417,15 @@ let rec optimizeLoop instrs =
   let dce, instrs = DeadCodeElimination.run instrs
   
   if
+      cse ||
       m2r ||
       cons_fold ||
       cons_prop || 
-      // copy_prop ||
-      cse ||
-      dce ||
-      false
+      copy_prop ||
+      dce
       then
           optimizeLoop instrs else instrs
-          // instrs else instrs // 한 번만 돌게..
+          // instrs else instrs
     
 // Optimize input IR code into faster version.
 let run (ir: IRCode) : IRCode =

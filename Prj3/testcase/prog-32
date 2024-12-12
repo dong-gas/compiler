@@ -1,5 +1,7 @@
 int main(int x) {
   int i = x;
-  i = i + 1;
-  return i;
+  int j = i * 3;
+  int k = i * 3; 
+  int p = i * 3;
+  return i * 3;
 }
