@@ -51,24 +51,25 @@ module ConstantPropagation =
             let instr = getInstr node cfg
             let pre = getPreds node cfg
             let rd_in_node = union_set Set.empty<Instr> pre rdMap
-            let mutable one = true
             let can o: _ =
+                let mutable can = true
                 let related_defs =
                       rd_in_node |> Set.filter (fun d -> match d with
-                                                          | Set(r, _) when Reg r = o -> true
-                                                          | LocalAlloc(r, _) when Reg r = o ->
-                                                              one <- false
-                                                              false
+                                                          | Set(r, Imm _) when Reg r = o -> true
+                                                          | Load(r, _) when Reg r = o ->
+                                                              can <- false
+                                                              true
                                                           | UnOp(r, _, _) when Reg r = o ->
-                                                              one <- false
-                                                              false
+                                                              can <- false
+                                                              true
                                                           | BinOp(r, _, _, _) when Reg r = o ->
-                                                              one <- false
-                                                              false
+                                                              can <- false
+                                                              true
                                                           | _ -> false)
                 match Set.toList related_defs with
-                | [Set(_, Imm c)] -> if one then Some c else None
+                | [Set(_, Imm c)] when can -> Some c
                 | _ -> None
+                
             match instr with            
             | Set(r, o) ->
                 match can o with
@@ -224,7 +225,7 @@ let rec optimizeLoop instrs =
   let cf, instrs = ConstantFolding.run instrs
   
   // ConstantPropagation
-  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
+  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let cp, instrs = ConstantPropagation.run instrs
   
   // DeadCodeElimination

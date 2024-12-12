@@ -21,7 +21,6 @@ module RDAnalysis =
     let del_instr (rd_set: RDSet) (reg: Register) : RDSet =
         Set.filter (fun instr ->
             match instr with
-            // | Set (r, _) -> r <> reg
             | Set (r, _) when r = reg -> false
             | UnOp (r, _, _) when r = reg -> false
             | BinOp (r, _, _, _) when r = reg -> false
@@ -32,13 +31,13 @@ module RDAnalysis =
     let f (rd_in: RDSet) (instr: Instr) : RDSet =
         // f(rd_in, instr) = (rd_in - define %t) + instr
         match instr with
-        | Set (r, o)  ->
+        | Set (r, _)  ->
             let rd_out = del_instr rd_in r
             rd_out.Add instr
         | UnOp (r, _, _) ->
             let rd_out = del_instr rd_in r
             rd_out.Add instr
-        | BinOp(r, _, _, _) ->
+        | BinOp (r, _, _, _) ->
             let rd_out = del_instr rd_in r
             rd_out.Add instr
         | Load (r, _) ->
