@@ -13,6 +13,7 @@
         "packagesPath": "/Users/dong_gas/.nuget/packages/",
         "outputPath": "/Users/dong_gas/Desktop/기초컴파일러구성/Prj3/obj/",
         "projectStyle": "PackageReference",
+        "UsingMicrosoftNETSdk": false,
         "configFilePaths": [
           "/Users/dong_gas/.nuget/NuGet/NuGet.Config"
         ],

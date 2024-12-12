@@ -55,7 +55,7 @@ module ConstantPropagation =
                 let mutable can = true
                 let related_defs =
                       rd_in_node |> Set.filter (fun d -> match d with
-                                                          | Set(r, Imm _) when Reg r = o -> true                                                          
+                                                          | Set(r, _) when Reg r = o -> true                                                          
                                                           | UnOp(r, _, _) when Reg r = o ->
                                                               can <- false
                                                               true
@@ -70,7 +70,8 @@ module ConstantPropagation =
                 | [Set(_, Imm c)] when can -> Some c
                 | _ -> None
                 
-            match instr with            
+            match instr with
+            // 문제 있음. TLE남. i = i + 1 쪽인가...
             | Set(r, o) ->
                 match can o with
                 | Some c ->
@@ -94,7 +95,7 @@ module ConstantPropagation =
                 | None, Some c2 ->
                     opt <- true
                     retlist <- retlist @ [BinOp(r, op, o1, Imm c2)] 
-                | _ -> retlist <- retlist @ [instr]
+                | None, None -> retlist <- retlist @ [instr]
             | Store(o, r) ->
                 match can o with
                 | Some c ->
@@ -136,8 +137,7 @@ module Mem2Reg =
                     | Some (Label l) when l = trash -> true
                     | _ -> false
             if (isLabel (index - 1) && isLabel (index + 1)) then
-                if not (List.exists (function Label l when l = reg -> true | _ -> false) instrs) then
-                    Some reg
+                if not (List.exists (function Label l when l = reg -> true | _ -> false) instrs) then Some reg
                 else None
             else None
         | _ -> None
@@ -231,6 +231,7 @@ let rec optimizeLoop instrs =
   
   // ConstantPropagation
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
+  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
   let cp, instrs = ConstantPropagation.run instrs
   // m2r이후에 여기서 문제가 있는 듯
   
