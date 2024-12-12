@@ -54,7 +54,7 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
   | AddrOf vname -> // &x
       let varReg = lookupVar symtab vname
       let r = createRegName ()
-      (r, [Set(r, Reg varReg)])
+      (r, [Label varReg] @ [Set(r, Reg varReg)])
   | Arr (vname, exp) -> // x[exp]
       let varReg = lookupVar symtab vname
       let idx_r, idx_instr_list = transExp symtab exp
@@ -122,20 +122,6 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
       let r2, exp_instr_list_2 = transExp symtab exp2
       let reg = createRegName ()
       (reg, exp_instr_list_1 @ exp_instr_list_2 @ [BinOp(reg, GtOp, Reg r1, Reg r2)])
-  // | And (exp1, exp2) -> // &&
-  //     let r1, exp_instr_list_1 = transExp symtab exp1
-  //     let r2, exp_instr_list_2 = transExp symtab exp2
-  //     let reg = createRegName ()
-  //     let false_label = createLabel ()
-  //     let end_label = createLabel ()
-  //     (reg, exp_instr_list_1 @ [GotoIfNot(Reg r1, false_label)] @ exp_instr_list_2 @ [Set(reg, Reg r2)] @ [Goto(end_label)] @ [Label false_label] @ [Set(reg, Imm 0)] @ [Label end_label])
-  // | Or (exp1, exp2) -> // ||
-  //     let r1, exp_instr_list_1 = transExp symtab exp1
-  //     let r2, exp_instr_list_2 = transExp symtab exp2
-  //     let reg = createRegName ()
-  //     let true_label = createLabel ()
-  //     let end_label = createLabel ()
-  //     (reg, exp_instr_list_1 @ [GotoIf(Reg r1, true_label)] @ exp_instr_list_2 @ [Set(reg, Reg r2)] @ [Goto(end_label)] @ [Label true_label] @ [Set(reg, Imm 1)] @ [Label end_label])
   | And (exp1, exp2) -> // &&
       let r1, exp_instr_list_1 = transExp symtab exp1
       let r2, exp_instr_list_2 = transExp symtab exp2
@@ -157,8 +143,6 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       let r = createRegName ()
       let size = sizeof typ
       let symtab = Map.add vname (r, typ) symtab
-      
-      // 단순 cint, cbool이면 label 2개씩..
       match typ with
       | CInt | CBool ->
           (symtab, [Label trash] @ [LocalAlloc (r, size)] @ [Label trash])

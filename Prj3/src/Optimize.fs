@@ -55,16 +55,16 @@ module ConstantPropagation =
                 let mutable can = true
                 let related_defs =
                       rd_in_node |> Set.filter (fun d -> match d with
-                                                          | Set(r, Imm _) when Reg r = o -> true
-                                                          | Load(r, _) when Reg r = o ->
-                                                              can <- false
-                                                              true
+                                                          | Set(r, Imm _) when Reg r = o -> true                                                          
                                                           | UnOp(r, _, _) when Reg r = o ->
                                                               can <- false
                                                               true
                                                           | BinOp(r, _, _, _) when Reg r = o ->
                                                               can <- false
                                                               true
+                                                          | Load(r, _) when Reg r = o ->
+                                                              can <- false
+                                                              true    
                                                           | _ -> false)
                 match Set.toList related_defs with
                 | [Set(_, Imm c)] when can -> Some c
@@ -121,6 +121,7 @@ module ConstantPropagation =
                 | None -> retlist <- retlist @ [instr]
             | _ -> retlist <- retlist @ [instr]
         (opt, retlist)
+
     
 module Mem2Reg =
   let run instrs =
@@ -134,14 +135,18 @@ module Mem2Reg =
                     match List.tryItem i instrs with
                     | Some (Label l) when l = trash -> true
                     | _ -> false
-            if (isLabel (index - 1) && isLabel (index + 1)) then Some reg else None
+            if (isLabel (index - 1) && isLabel (index + 1)) then
+                if not (List.exists (function Label l when l = reg -> true | _ -> false) instrs) then
+                    Some reg
+                else None
+            else None
         | _ -> None
     
     let mutable R = None
     let mutable x = -1
     List.iteri (fun index instr ->
         let ret = can index instr instrs
-        if  ret <> None then
+        if  ret <> None && x = -1 then
             x <- index
             R <- ret
     ) instrs
@@ -217,7 +222,7 @@ module DeadCodeElimination =
 let rec optimizeLoop instrs =
   
   // Mem2Reg
-  // XXXXXXXXXXXXXXXXXXXXXXXXXXX
+  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let m2r, instrs = Mem2Reg.run instrs
   
   // ConstantFolding
@@ -227,6 +232,7 @@ let rec optimizeLoop instrs =
   // ConstantPropagation
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let cp, instrs = ConstantPropagation.run instrs
+  // m2r이후에 여기서 문제가 있는 듯
   
   // DeadCodeElimination
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
