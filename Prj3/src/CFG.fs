@@ -42,11 +42,12 @@ module CFG =
     | headInstr :: tailInstrs ->
       let succs =
         match headInstr with
-        | Goto l -> [Map.find l labelMap]
-        | GotoIf (_, l) | GotoIfNot(_, l) -> [Map.find l labelMap; idx + 1]
         | Ret _ -> []
-        // | _ -> [idx + 1]
-        | _ -> if tailInstrs = [] then [] else [idx + 1]
+        | Goto l -> [Map.find l labelMap]
+        | GotoIf (_, l) | GotoIfNot(_, l) ->
+          if List.isEmpty tailInstrs then [Map.find l labelMap]
+          else [Map.find l labelMap; idx + 1]
+        | _ -> if List.isEmpty tailInstrs then [] else [idx + 1]
       let succMap = Map.add idx succs succMap
       let predMap = updatePreds idx succs predMap
       findEdges labelMap tailInstrs (idx + 1) (succMap, predMap)
@@ -54,9 +55,9 @@ module CFG =
   // Construct a CFG from the provided instruction list.
   let make (instrs: Instr list): CFG =
     let instrMap, labelMap = scanInstrs instrs 0 (Map.empty, Map.empty)
-    let succMap, predMap = findEdges labelMap instrs 0 (Map.empty, Map.empty)      
+    let succMap, predMap = findEdges labelMap instrs 0 (Map.empty, Map.empty)
     (instrMap, succMap, predMap)
-  
+
   // Return the list of all the node IDs in the CFG.
   let getAllNodes (cfg: CFG): int list =
     let (instrMap, _, _) = cfg

@@ -208,7 +208,7 @@ module AEAnalysis =
             let ret = Del r ret
             let ret = Set.add instr ret
             ret
-        | Load (_, r) -> Del r ret
+        | Load (_, r) -> Del r ret // 추가도 하고, store만나면 모든 load 다 지우게 구현 ㄱㄱ..
         | LocalAlloc (r, sz) -> Del r ret
         | _ -> ret
         

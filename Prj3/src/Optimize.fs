@@ -270,8 +270,6 @@ module CopyPropagation =
                 match pre with
                 | [] -> intersection_set Set.empty<Instr> pre AESet
                 | _ -> intersection_set U pre AESet
-            // ae_in_node에 set이 있는지 확인
-            
             let get_reg reg : _ =
                 let filtered_set =
                     ae_in_node 
@@ -391,6 +389,15 @@ module CommonSubexpressionElimination =
             | _ -> retlist <- instr :: retlist
         (opt, List.rev retlist)
 
+   
+module my_del =
+    // 1 gotolabel l이 있고
+    // 2 그 명령어 뒤쪽에 l이 있고
+    // 3 사이에 label이 없으면 (trash label은 있어도 됨)
+    // 4 1 ~ 2 사이 instruction 삭제 가능
+    let run instrs =        
+        (true, instrs)
+
 // You will have to run optimization iteratively, as shown below.
 let rec optimizeLoop instrs =
   
@@ -427,8 +434,6 @@ let rec optimizeLoop instrs =
       dce
       then
           optimizeLoop instrs else instrs
-              
-          // instrs else instrs
     
 // Optimize input IR code into faster version.
 let run (ir: IRCode) : IRCode =
