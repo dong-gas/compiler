@@ -270,100 +270,72 @@ module CopyPropagation =
                 match pre with
                 | [] -> intersection_set Set.empty<Instr> pre AESet
                 | _ -> intersection_set U pre AESet
-            // ae_in_node에 set이 있는지 확인 
+            // ae_in_node에 set이 있는지 확인
+            
+            let get_reg reg : _ =
+                let filtered_set =
+                    ae_in_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Set(x, _) -> reg = Reg x
+                        | _ -> false
+                        )
+                if Set.count filtered_set = 1 then
+                    match Set.toList filtered_set with
+                    | [Set (x, y)] -> Some y
+                    | _ -> None
+                else None
+            
             match instr with
             | Set (r, o) -> // r = o
-                let get_same_reg = 
-                    ae_in_node 
-                    |> Set.filter (fun instr ->
-                        match instr with
-                        | Set(x, _) -> o = Reg x
-                        | _ -> false
-                        )
-                match Set.toList get_same_reg with
-                | [Set(x, y)] ->
+                let REG = get_reg o
+                match REG with
+                | Some y ->
                     opt <- true
                     retlist <- Set(r, y) :: retlist
-                | _ -> retlist <- instr :: retlist
-            | UnOp (r, uop, o) -> // r = o
-                let get_same_reg = 
-                    ae_in_node 
-                    |> Set.filter (fun instr ->
-                        match instr with
-                        | Set(x, _) -> o = Reg x
-                        | _ -> false
-                        )
-                match Set.toList get_same_reg with
-                | [Set(x, y)] ->
+                | None -> retlist <- instr :: retlist
+            | UnOp (r, uop, o) ->
+                let REG = get_reg o
+                match REG with
+                | Some y ->
                     opt <- true
                     retlist <- UnOp(r, uop, y) :: retlist
-                | _ -> retlist <- instr :: retlist
-            | BinOp (r, bop, o1, o2) -> // r = o
-                let get_same_reg_1 = 
-                    ae_in_node 
-                    |> Set.filter (fun instr ->
-                        match instr with
-                        | Set(x, _) -> o1 = Reg x
-                        | _ -> false
-                        )
-                let get_same_reg_2 = 
-                    ae_in_node 
-                    |> Set.filter (fun instr ->
-                        match instr with
-                        | Set(x, _) -> o2 = Reg x
-                        | _ -> false
-                        )
-                match Set.toList get_same_reg_1 with
-                | [Set(x, y)] ->
+                | None -> retlist <- instr :: retlist
+            | BinOp (r, bop, o1, o2) ->
+                let REG1 = get_reg o1
+                let REG2 = get_reg o2
+                match (REG1, REG2) with
+                | Some y1, Some y2 ->
                     opt <- true
-                    match Set.toList get_same_reg_2 with
-                    | [Set(p, q)] -> retlist <- BinOp(r, bop, y, q) :: retlist
-                    | _ -> retlist <- BinOp(r, bop, y, o2) :: retlist
-                | _ ->
-                    match Set.toList get_same_reg_2 with
-                    | [Set(p, q)] ->
-                        opt <- true
-                        retlist <- BinOp(r, bop, o1, q) :: retlist
-                    | _ -> retlist <- instr :: retlist
+                    retlist <- BinOp(r, bop, y1, y2) :: retlist
+                | Some y1, None ->
+                    opt <- true
+                    retlist <- BinOp(r, bop, y1, o2) :: retlist
+                | None, Some y2 ->
+                    opt <- true
+                    retlist <- BinOp(r, bop, o1, y2) :: retlist
+                | _ -> retlist <- instr :: retlist
             | GotoIf (o, l) ->
-                let get_same_reg = 
-                    ae_in_node 
-                    |> Set.filter (fun instr ->
-                        match instr with
-                        | Set(x, _) -> o = Reg x
-                        | _ -> false
-                        )
-                match Set.toList get_same_reg with
-                | [Set(x, y)] ->
+                let REG = get_reg o
+                match REG with
+                | Some y ->
                     opt <- true
-                    retlist <- GotoIf(y ,l) :: retlist
-                | _ -> retlist <- instr :: retlist
-            | GotoIfNot (o, l) ->   
-                let get_same_reg = 
-                    ae_in_node 
-                    |> Set.filter (fun instr ->
-                        match instr with
-                        | Set(x, _) -> o = Reg x
-                        | _ -> false
-                        )
-                match Set.toList get_same_reg with
-                | [Set(x, y)] ->
+                    retlist <- GotoIf(y, l) :: retlist
+                | None -> retlist <- instr :: retlist 
+            | GotoIfNot (o, l) ->
+                let REG = get_reg o
+                match REG with
+                | Some y ->
                     opt <- true
-                    retlist <- GotoIfNot(y ,l) :: retlist
-                | _ -> retlist <- instr :: retlist
+                    retlist <- GotoIfNot(y, l) :: retlist
+                | None -> retlist <- instr :: retlist
             | Ret o ->
-                let get_same_reg = 
-                    ae_in_node 
-                    |> Set.filter (fun instr ->
-                        match instr with
-                        | Set(x, _) -> o = Reg x
-                        | _ -> false
-                        )
-                match Set.toList get_same_reg with
-                | [Set(x, y)] ->
+                let REG = get_reg o
+                match REG with
+                | Some y ->
                     opt <- true
                     retlist <- Ret y :: retlist
-                | _ -> retlist <- instr :: retlist
+                | None -> retlist <- instr :: retlist
             | _ -> retlist <- instr :: retlist
     (opt, List.rev retlist)
     
@@ -433,7 +405,7 @@ let rec optimizeLoop instrs =
   // ConstantPropagation
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let cons_prop, instrs = ConstantPropagation.run instrs
-  
+      
   // CopyPropagation
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let copy_prop, instrs = CopyPropagation.run instrs
@@ -455,6 +427,7 @@ let rec optimizeLoop instrs =
       dce
       then
           optimizeLoop instrs else instrs
+              
           // instrs else instrs
     
 // Optimize input IR code into faster version.
