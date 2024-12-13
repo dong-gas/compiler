@@ -359,7 +359,24 @@ module CommonSubexpressionElimination =
             let instr = getInstr node cfg
             let pre = getPreds node cfg 
             let ae_out_node = intersection_set U pre AESet
+            
+            
             match instr with
+            | Load (r1, r2) ->
+                let get_same_exp =
+                    ae_out_node 
+                    |> Set.filter (fun instr ->
+                        match instr with
+                        | Load(sr1, sr2) -> r2 = sr2
+                        | _ -> false
+                        )
+                if Set.count get_same_exp = 1 then 
+                    match Set.toList get_same_exp with
+                    | [Load (x, y)] ->
+                        opt <- true
+                        retlist <- Set(r1, Reg x) :: retlist
+                    | _ -> retlist <- instr :: retlist
+                else retlist <- instr :: retlist
             | UnOp(r, un, o) ->
                 let get_same_exp = 
                     ae_out_node 
@@ -368,11 +385,13 @@ module CommonSubexpressionElimination =
                         | UnOp(sr, sun, so) -> sun = un && so = o
                         | _ -> false
                         )
-                match Set.toList get_same_exp with
-                | [UnOp(sr, _, _)] ->
-                    opt <- true
-                    retlist <- Set(r, Reg sr) :: retlist
-                | _ -> retlist <- instr :: retlist
+                if Set.count get_same_exp = 1 then 
+                    match Set.toList get_same_exp with
+                    | [UnOp(sr, _, _)] ->
+                        opt <- true
+                        retlist <- Set(r, Reg sr) :: retlist
+                    | _ -> retlist <- instr :: retlist
+                else retlist <- instr :: retlist
             | BinOp(r, bin, o1, o2) ->
                 let get_same_exp = 
                     ae_out_node 
@@ -381,22 +400,54 @@ module CommonSubexpressionElimination =
                         | BinOp(sr, sbin, so1, so2) -> sbin = bin && so1 = o1 && so2 = o2
                         | _ -> false
                         )
-                match Set.toList get_same_exp with
-                | [BinOp(sr, _, _, _)] ->
-                    opt <- true
-                    retlist <- Set(r, Reg sr) :: retlist
-                | _ -> retlist <- instr :: retlist
+                if Set.count get_same_exp = 1 then
+                    match Set.toList get_same_exp with
+                    | [BinOp(sr, _, _, _)] ->
+                        opt <- true
+                        retlist <- Set(r, Reg sr) :: retlist
+                    | _ -> retlist <- instr :: retlist
+                else retlist <- instr :: retlist
             | _ -> retlist <- instr :: retlist
         (opt, List.rev retlist)
 
    
-module my_del =
+module MyDel =
     // 1 gotolabel l이 있고
     // 2 그 명령어 뒤쪽에 l이 있고
     // 3 사이에 label이 없으면 (trash label은 있어도 됨)
     // 4 1 ~ 2 사이 instruction 삭제 가능
-    let run instrs =        
-        (true, instrs)
+    let run instrs =
+        let arr = List.toArray instrs
+        let mutable lidx = -1
+        let mutable ridx = -1
+        for i in 0 .. ((Array.length arr) - 1) do
+            match arr.[i] with
+            | Goto(l1) ->
+                let mutable can = true
+                let mutable finished = false
+                for j in (i + 1) .. ((List.length instrs) - 1) do
+                    if can = false || finished then ()
+                    else
+                        match arr.[j] with
+                        | Label l2 ->
+                            if (l1 = l2) then
+                                lidx <- i
+                                ridx <- j
+                                finished <- true
+                            else
+                                match l2 with
+                                | "trash_above" | "trash_below" | "trashfolding" -> ()
+                                | _ -> can <- false
+                        | _ -> ()
+            | _ -> ()
+        if lidx <> -1 && ridx <> -1 then
+            let mutable retlist = []
+            for i in 0 .. ((Array.length arr) - 1) do
+                if lidx <= i && i <=ridx then ()
+                else retlist <- arr.[i] :: retlist
+            (true, List.rev retlist)
+        else (false, Array.toList arr)
+               
 
 // You will have to run optimization iteratively, as shown below.
 let rec optimizeLoop instrs =
@@ -405,6 +456,10 @@ let rec optimizeLoop instrs =
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let m2r, instrs = Mem2Reg.run instrs
   
+  // CopyPropagation
+  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
+  let copy_prop, instrs = CopyPropagation.run instrs
+  
   // ConstantFolding
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let cons_fold, instrs = ConstantFolding.run instrs
@@ -412,10 +467,6 @@ let rec optimizeLoop instrs =
   // ConstantPropagation
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let cons_prop, instrs = ConstantPropagation.run instrs
-      
-  // CopyPropagation
-  // OOOOOOOOOOOOOOOOOOOOOOOOOOO
-  let copy_prop, instrs = CopyPropagation.run instrs
  
   // CommonSubexpressionElimination
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
@@ -425,13 +476,18 @@ let rec optimizeLoop instrs =
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
   let dce, instrs = DeadCodeElimination.run instrs
   
+  // 효과 없는 듯..
+  // let my_del, instrs = MyDel.run instrs
+  
   if
-      cse ||
       m2r ||
       cons_fold ||
       cons_prop || 
       copy_prop ||
-      dce
+      cse ||
+      dce ||
+      // my_del ||
+      false
       then
           optimizeLoop instrs else instrs
     
