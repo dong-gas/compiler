@@ -11,7 +11,7 @@ type AESet = Set<Instr>
 module RDAnalysis =
     let run (cfg: CFG) : Map<int, RDSet> =
         let NodeList = getAllNodes cfg
-
+        let mutable ret = Map.empty<int, RDSet>
         let rec out_init (list: int list) (map: Map<int, RDSet>) : Map<int, RDSet> =
             match list with
             | [] -> map
@@ -62,13 +62,16 @@ module RDAnalysis =
                 let instr = getInstr node cfg
                 let pre = getPreds node cfg // int list
                 let rd_in_node = union_set Set.empty<Instr> pre updatedRD
+                ret <- ret.Add (node, rd_in_node)
+                
                 let rd_out_node = f rd_in_node instr
-
+                
                 if not (Map.containsKey node updatedRD && updatedRD[node] = rd_out_node) then
                     changed <- true
                     updatedRD <- updatedRD.Add(node, rd_out_node)
 
-            if changed then iterate updatedRD else updatedRD
+            if changed then iterate updatedRD
+            else ret
 
         iterate (out_init NodeList Map.empty<int, RDSet>)
 
@@ -76,9 +79,9 @@ module RDAnalysis =
 
 module LAAnalysis =
     let run (cfg: CFG) : Map<int, LASet> =
-
+        let mutable ret = Map.empty<int, LASet>
         let NodeList = List.rev (getAllNodes cfg)
-
+        
         let rec in_init (list: int list) (map: Map<int, LASet>) : Map<int, LASet> =
             match list with
             | [] -> map
@@ -143,13 +146,15 @@ module LAAnalysis =
                 let instr = getInstr node cfg
                 let suc = getSuccs node cfg
                 let la_out_node = union_set Set.empty<Register> suc currentLA
+                ret <- ret.Add (node, la_out_node)
                 let la_in_node = f la_out_node instr
 
                 if not (Map.containsKey node updatedLA && updatedLA[node] = la_in_node) then
                     changed <- true
                     updatedLA <- updatedLA.Add(node, la_in_node)
 
-            if changed then iterate updatedLA else updatedLA
+            if changed then iterate updatedLA
+            else ret
 
         iterate (in_init NodeList Map.empty<int, LASet>)
 
@@ -159,7 +164,7 @@ module AEAnalysis =
     let run (cfg: CFG) : Map<int, AESet> =
         let NodeList = getAllNodes cfg
         let mutable U = Set.empty<Instr>
-
+        let mutable ret = Map.empty<int, AESet>
         for node in NodeList do
             let instr = getInstr node cfg
             U <- Set.add instr U
@@ -204,15 +209,15 @@ module AEAnalysis =
             let ret = ae_out
 
             match instr with
-            | Set(r, o) ->
+            | Set(r, _) ->
                 let ret = Del r ret
                 let ret = Set.add instr ret
                 ret
-            | UnOp(r, un, o) ->
+            | UnOp(r, _, _) ->
                 let ret = Del r ret
                 let ret = Set.add instr ret
                 ret
-            | BinOp(r, bin, o1, o2) ->
+            | BinOp(r, _, _, _) ->
                 let ret = Del r ret
                 let ret = Set.add instr ret
                 ret
@@ -220,16 +225,16 @@ module AEAnalysis =
                 let ret = Del r ret // add도 하고, store만나면 모든 load 다 지우게 구현 ㄱㄱ..
                 let ret = Set.add instr ret
                 ret
-            | Store(o, r) ->
+            | Store _ ->
                 // load 다 지우기...
                 let ret =
                     ae_out
                     |> Set.filter (fun instr ->
                         match instr with
-                        | Load(_, _) -> false
+                        | Load _ -> false
                         | _ -> true)
                 ret
-            | LocalAlloc(r, sz) -> Del r ret
+            | LocalAlloc(r, _) -> Del r ret
             | _ -> ret
 
         let rec intersection_set (s: AESet) (list: int list) (ae: Map<int, AESet>) : AESet =
@@ -251,13 +256,14 @@ module AEAnalysis =
                     match pre with
                     | [] -> intersection_set Set.empty<Instr> pre currentAE
                     | _ -> intersection_set U pre currentAE
-
+                ret <- ret.Add (node, ae_in_node)
                 let ae_out_node = f ae_in_node instr
 
                 if not (Map.containsKey node updatedAE && updatedAE[node] = ae_out_node) then
                     changed <- true
                     updatedAE <- updatedAE.Add(node, ae_out_node)
 
-            if changed then iterate updatedAE else updatedAE
+            if changed then iterate updatedAE
+            else ret
 
         iterate (out_init NodeList Map.empty<int, AESet>)

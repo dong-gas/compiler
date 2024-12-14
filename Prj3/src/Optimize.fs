@@ -69,18 +69,11 @@ module ConstantPropagation =
         let cfg = CFG.make instrs
         let rdMap = RDAnalysis.run cfg
         let NodeList = getAllNodes cfg
-        let rec union_set (s: RDSet) (list: int list) (rd: Map<int, RDSet>) : RDSet =
-            match list with
-            | [] -> s
-            | head :: tail ->
-                let ret = Set.union s (Map.find head rd)
-                union_set ret tail rd
         let mutable opt = false 
         let mutable retlist = []
         for node in NodeList do
             let instr = getInstr node cfg
-            let pre = getPreds node cfg
-            let rd_in_node = union_set Set.empty<Instr> pre rdMap
+            let rd_in_node = rdMap[node]
             let can o: _ =
                 let mutable can = true
                 let related_defs =
@@ -205,7 +198,6 @@ module Mem2Reg =
         let retlist = remove_localAlloc retlist
         let retlist = replace_load_to_set retlist
         let retlist = replace_store_to_set retlist
-        
         (true, retlist)
 
 module DeadCodeElimination =
@@ -213,19 +205,12 @@ module DeadCodeElimination =
      let cfg = CFG.make instrs
      let laSet = LAAnalysis.run cfg    
      let NodeList = List.rev (getAllNodes cfg)
-     let rec union_set (s: LASet) (list: int list) (rd: Map<int, LASet>) : LASet =
-        match list with
-        | [] -> s
-        | head :: tail ->
-            let ret = Set.union s (Map.find head rd)
-            union_set ret tail rd
      
      let mutable opt = false
      let mutable retlist = []
      for node in NodeList do
         let instr = getInstr node cfg
-        let suc = getSuccs node cfg 
-        let la_out_node = union_set Set.empty<Register> suc laSet
+        let la_out_node = laSet[node]
         match instr with
         | Set(r, _) ->
             if Set.contains r la_out_node then retlist <- instr :: retlist
@@ -251,12 +236,6 @@ module CopyPropagation =
     let AESet = AEAnalysis.run cfg
     let mutable opt = false
     let NodeList = getAllNodes cfg
-    let rec intersection_set (s: AESet) (list: int list) (ae: Map<int, AESet>) : AESet =
-        match list with
-        | [] -> s
-        | head :: tail ->
-            let ret = Set.intersect s (Map.find head ae)
-            intersection_set ret tail ae
     let mutable retlist = []
     let mutable U = Set.empty<Instr>
     for node in NodeList do
@@ -265,11 +244,7 @@ module CopyPropagation =
     
     for node in NodeList do
             let instr = getInstr node cfg
-            let pre = getPreds node cfg 
-            let ae_in_node =
-                match pre with
-                | [] -> intersection_set Set.empty<Instr> pre AESet
-                | _ -> intersection_set U pre AESet
+            let ae_in_node = AESet[node]
             let get_reg reg : _ =
                 let filtered_set =
                     ae_in_node 
@@ -342,12 +317,6 @@ module CommonSubexpressionElimination =
         let cfg = CFG.make instrs
         let AESet = AEAnalysis.run cfg
         let NodeList = getAllNodes cfg
-        let rec intersection_set (s: AESet) (list: int list) (ae: Map<int, AESet>) : AESet =
-            match list with
-            | [] -> s
-            | head :: tail ->
-                let ret = Set.intersect s (Map.find head ae)
-                intersection_set ret tail ae
         let mutable opt = false
         let mutable retlist = []
         let mutable U = Set.empty<Instr>
@@ -357,14 +326,12 @@ module CommonSubexpressionElimination =
             
         for node in NodeList do
             let instr = getInstr node cfg
-            let pre = getPreds node cfg 
-            let ae_out_node = intersection_set U pre AESet
-            
+            let ae_in_node = AESet[node]     
             
             match instr with
             | Load (r1, r2) ->
                 let get_same_exp =
-                    ae_out_node 
+                    ae_in_node 
                     |> Set.filter (fun instr ->
                         match instr with
                         | Load(sr1, sr2) -> r2 = sr2
@@ -379,7 +346,7 @@ module CommonSubexpressionElimination =
                 else retlist <- instr :: retlist
             | UnOp(r, un, o) ->
                 let get_same_exp = 
-                    ae_out_node 
+                    ae_in_node 
                     |> Set.filter (fun instr ->
                         match instr with
                         | UnOp(sr, sun, so) -> sun = un && so = o
@@ -394,7 +361,7 @@ module CommonSubexpressionElimination =
                 else retlist <- instr :: retlist
             | BinOp(r, bin, o1, o2) ->
                 let get_same_exp = 
-                    ae_out_node 
+                    ae_in_node 
                     |> Set.filter (fun instr ->
                         match instr with
                         | BinOp(sr, sbin, so1, so2) -> sbin = bin && so1 = o1 && so2 = o2
@@ -479,6 +446,14 @@ let rec optimizeLoop instrs =
   // 효과 없는 듯..
   // let my_del, instrs = MyDel.run instrs
   
+  // if m2r then printf "m2r "
+  // if cons_fold then printf "cons_fold "
+  // if cons_prop then printf "cons_prop "
+  // if copy_prop then printf "copy_prop "
+  // if cse then printf "cse "
+  // if dce then printf "dce "
+  // if my_del then printf "my_del "
+  // printfn ""
   if
       m2r ||
       cons_fold ||
