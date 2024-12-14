@@ -1,0 +1,11 @@
+int f(int x, int y) {
+  int* p = &x;
+  int* q = &y;
+  int* r = NULL;
+  if(p != q) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}

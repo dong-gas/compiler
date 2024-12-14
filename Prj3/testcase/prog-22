@@ -8,7 +8,7 @@ int f(int x, int y) {
     *i = *i*2;
   }
 
-  if (!i) {
+  if (i == NULL) {
     n = 1;
     n = -n;
   }

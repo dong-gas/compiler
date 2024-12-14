@@ -1,0 +1,10 @@
+int f(int x, int y) {
+  int * i = &x;
+  if (x<=2){
+    i=NULL;
+  }
+  if(i==NULL){
+    return y;
+  }
+  return y+1;
+}

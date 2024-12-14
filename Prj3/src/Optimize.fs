@@ -421,7 +421,7 @@ let rec optimizeLoop instrs =
   
   // Mem2Reg
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
-  // let m2r, instrs = Mem2Reg.run instrs
+  let m2r, instrs = Mem2Reg.run instrs
   
   // CopyPropagation
   // OOOOOOOOOOOOOOOOOOOOOOOOOOO
@@ -455,7 +455,7 @@ let rec optimizeLoop instrs =
   // if my_del then printf "my_del "
   // printfn ""
   if
-      // m2r ||
+      m2r ||
       cons_fold ||
       cons_prop || 
       copy_prop ||
