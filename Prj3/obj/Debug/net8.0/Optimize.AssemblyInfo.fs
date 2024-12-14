@@ -10,7 +10,7 @@ open System.Reflection
 [<assembly: System.Reflection.AssemblyCompanyAttribute("Optimize")>]
 [<assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")>]
 [<assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")>]
-[<assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+49b09f78487f1e92bc3ec1bba0515db9deb1f8dd")>]
+[<assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e787821341694b6779757eeed00bf6e63d0a86d4")>]
 [<assembly: System.Reflection.AssemblyProductAttribute("Optimize")>]
 [<assembly: System.Reflection.AssemblyTitleAttribute("Optimize")>]
 [<assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")>]

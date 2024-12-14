@@ -4,12 +4,21 @@ open AST
 open IR
 open Helper
 
-let trash_above = "trash_above"
-let trash_below = "trash_below"
 
 // Symbol table is a mapping from identifier to a pair of register and type.
 // Register is recorded here will be containg the address of that variable.
 type SymbolTable = Map<Identifier,Register * CType>
+
+let mutable dirMap = Map.empty<Register, Register>
+
+let add_dir r1 r2  =
+    dirMap <- Map.add r1 r2 dirMap
+   
+let get_dir r : Register =
+    match Map.tryFind r dirMap with
+    | Some value -> value
+    | None -> failwith "Unbound variable"
+
 
 // Let's assume the following size for each data type.
 let sizeof (ctyp: CType) =
@@ -46,16 +55,15 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
   | Var vname -> // x
       let varReg = lookupVar symtab vname // Contains the address of 'vname'
       let r = createRegName ()
-      (r, [Load (r, varReg)])
+      match lookupType symtab vname with
+      | CInt | CBool -> (varReg, [])
+      | CIntPtr | CBoolPtr -> (get_dir varReg, [])
+      | _ -> (r, [Load (r, varReg)])
   | Deref vname -> // *x
       let varReg = lookupVar symtab vname
-      let r = createRegName ()
-      let tmp = createRegName ()
-      (r, [Load (tmp, varReg)] @ [Load(r, tmp)])
+      (get_dir varReg, [])
   | AddrOf vname -> // &x
-      let varReg = lookupVar symtab vname
-      let r = createRegName ()
-      (r, [Label varReg] @ [Set(r, Reg varReg)])
+      (lookupVar symtab vname, [])
   | Arr (vname, exp) -> // x[exp]
       let varReg = lookupVar symtab vname
       let idx_r, idx_instr_list = transExp symtab exp
@@ -126,13 +134,17 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
   | And (exp1, exp2) -> // &&
       let r1, exp_instr_list_1 = transExp symtab exp1
       let r2, exp_instr_list_2 = transExp symtab exp2
-      let L = createLabel ()
-      (r2, exp_instr_list_1 @ [Set(r2, Imm 0)] @ [GotoIfNot(Reg r1, L)] @ exp_instr_list_2 @ [Label L])
+      let reg = createRegName ()
+      let false_label = createLabel ()
+      let end_label = createLabel ()
+      (reg, exp_instr_list_1 @ [GotoIfNot(Reg r1, false_label)] @ exp_instr_list_2 @ [Set(reg, Reg r2)] @ [Goto(end_label)] @ [Label false_label] @ [Set(reg, Imm 0)] @ [Label end_label])
   | Or (exp1, exp2) -> // ||
       let r1, exp_instr_list_1 = transExp symtab exp1
       let r2, exp_instr_list_2 = transExp symtab exp2
-      let L = createLabel ()
-      (r2, exp_instr_list_1 @ [Set (r2,Imm 1)] @ [GotoIf(Reg r1, L)] @ exp_instr_list_2 @ [Label L])
+      let reg = createRegName ()
+      let true_label = createLabel ()
+      let end_label = createLabel ()
+      (reg, exp_instr_list_1 @ [GotoIf(Reg r1, true_label)] @ exp_instr_list_2 @ [Set(reg, Reg r2)] @ [Goto(end_label)] @ [Label true_label] @ [Set(reg, Imm 1)] @ [Label end_label])
   | Not exp -> // !E
       let r, exp_instr_list = transExp symtab exp
       let reg = createRegName ()
@@ -142,31 +154,40 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
   match stmt with
   | Declare (_, typ, vname) -> // ex) int x;
       let r = createRegName ()
-      let size = sizeof typ
       let symtab = Map.add vname (r, typ) symtab
       match typ with
-      | CInt | CBool ->
-          (symtab, [Label trash_above] @ [LocalAlloc (r, size)] @ [Label trash_below])
-      | _ -> (symtab, [LocalAlloc (r, size)])
-      
+      | CInt | CBool | CIntPtr | CBoolPtr -> (symtab, []) //바로 mem2reg
+      | _ ->    
+          let size = sizeof typ
+          (symtab, [LocalAlloc (r, size)])
   | Define (_, typ, vname, exp) -> // ex) int x = 0;
       let r1 = createRegName ()
       let size = sizeof typ
       let symtab = Map.add vname (r1, typ) symtab
       let r2, exp_instr_list = transExp symtab exp
       match typ with
-      | CInt | CBool ->
-          (symtab, exp_instr_list @ [Label trash_above] @ [LocalAlloc(r1, size)] @ [Label trash_below] @ [Store(Reg r2, r1)])
-      | _ ->(symtab, exp_instr_list @ [LocalAlloc(r1, size)] @ [Store(Reg r2, r1)])
+      | CInt | CBool -> (symtab, exp_instr_list @ [Set(r1, Reg r2)])
+      | CIntPtr | CBoolPtr ->
+          add_dir r1 r2
+          (symtab, exp_instr_list)
+      | _ -> (symtab, exp_instr_list @ [LocalAlloc(r1, size)] @ [Store(Reg r2, r1)])
   | Assign (_, vname, exp) -> // ex) x = 10;      
       let r1 = lookupVar symtab vname
       let r2, exp_instr_list = transExp symtab exp
-      (symtab, exp_instr_list @ [Store(Reg r2, r1)]) 
+      let typ = lookupType symtab vname
+      match typ with
+      | CInt | CBool -> (symtab, exp_instr_list @ [Set(r1, Reg r2)])
+      | CIntPtr | CBoolPtr ->
+          add_dir r1 r2
+          (symtab, [])
+      | _ ->
+          (symtab, exp_instr_list @ [Store(Reg r2, r1)])
+          // (symtab, [LocalAlloc(r1, sizeof typ)] @ exp_instr_list @ [Store(Reg r2, r1)])
+      // here? 오류?
   | PtrUpdate (_, vname, exp) -> // ex) *x = 10;
       let r1 = lookupVar symtab vname
       let r2, exp_instr_list = transExp symtab exp
-      let add_r = createRegName ()
-      (symtab, exp_instr_list @ [Load(add_r, r1)] @ [Store(Reg r2, add_r)])
+      (symtab, exp_instr_list @ [Set(get_dir r1, Reg r2)])
   | ArrUpdate (_, vname, exp1, exp2) -> // ex) x[1] = 2;
       let idx_r, idx_instr_list = transExp symtab exp1
       let val_r, val_instr_list = transExp symtab exp2
@@ -214,7 +235,7 @@ let rec transArgs accSymTab accInstrs args =
       let size = sizeof argTyp
       // From now on, we can use 'r' as a pointer to access 'argName'.
       let accSymTab = Map.add argName (r, argTyp) accSymTab
-      let accInstrs = [Label trash_above; LocalAlloc (r, size); Label trash_below; Store (Reg argName, r)] @ accInstrs
+      let accInstrs = [Set(r, Reg argName)] @ accInstrs
       transArgs accSymTab accInstrs tailArgs
 
 // Translate input program into IR code.
