@@ -46,16 +46,17 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
   | Var vname -> // x
       let varReg = lookupVar symtab vname // Contains the address of 'vname'
       let r = createRegName ()
-      (r, [Load (r, varReg)])
+      match lookupType symtab vname with
+      | CBoolPtr | CIntPtr -> (varReg, [])
+      | _ -> (r, [Load (r, varReg)])
   | Deref vname -> // *x
       let varReg = lookupVar symtab vname
       let r = createRegName ()
-      let tmp = createRegName ()
-      (r, [Load (tmp, varReg)] @ [Load(r, tmp)])
+      (r, [Load (r, varReg)])
   | AddrOf vname -> // &x
       let varReg = lookupVar symtab vname
-      let r = createRegName ()
-      (r, [Label varReg] @ [Set(r, Reg varReg)])
+      // let r = createRegName ()
+      (varReg, [])
   | Arr (vname, exp) -> // x[exp]
       let varReg = lookupVar symtab vname
       let idx_r, idx_instr_list = transExp symtab exp
@@ -145,28 +146,28 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       let size = sizeof typ
       let symtab = Map.add vname (r, typ) symtab
       match typ with
-      | CInt | CBool ->
-          (symtab, [Label trash_above] @ [LocalAlloc (r, size)] @ [Label trash_below])
+      | CInt | CBool -> (symtab, [Label trash_above] @ [LocalAlloc (r, size)] @ [Label trash_below])
+      | CIntPtr | CBoolPtr -> (symtab, [Set(r, Imm -1)])
       | _ -> (symtab, [LocalAlloc (r, size)])
-      
   | Define (_, typ, vname, exp) -> // ex) int x = 0;
       let r1 = createRegName ()
       let size = sizeof typ
       let symtab = Map.add vname (r1, typ) symtab
       let r2, exp_instr_list = transExp symtab exp
       match typ with
-      | CInt | CBool ->
-          (symtab, exp_instr_list @ [Label trash_above] @ [LocalAlloc(r1, size)] @ [Label trash_below] @ [Store(Reg r2, r1)])
-      | _ ->(symtab, exp_instr_list @ [LocalAlloc(r1, size)] @ [Store(Reg r2, r1)])
+      | CInt | CBool -> (symtab, exp_instr_list @ [Label trash_above] @ [LocalAlloc(r1, size)] @ [Label trash_below] @ [Store(Reg r2, r1)])
+      | CIntPtr | CBoolPtr -> (symtab, exp_instr_list @ [Set(r1, Reg r2)] @ [Label r2])
+      | _ -> (symtab, exp_instr_list @ [LocalAlloc(r1, size)] @ [Store(Reg r2, r1)])
   | Assign (_, vname, exp) -> // ex) x = 10;      
       let r1 = lookupVar symtab vname
       let r2, exp_instr_list = transExp symtab exp
-      (symtab, exp_instr_list @ [Store(Reg r2, r1)]) 
+      match lookupType symtab vname with
+      | CIntPtr | CBoolPtr -> (symtab, exp_instr_list @ [Set(r1, Reg r2)] @ [Label r2])
+      | _ -> (symtab, exp_instr_list @ [Store(Reg r2, r1)]) 
   | PtrUpdate (_, vname, exp) -> // ex) *x = 10;
       let r1 = lookupVar symtab vname
       let r2, exp_instr_list = transExp symtab exp
-      let add_r = createRegName ()
-      (symtab, exp_instr_list @ [Load(add_r, r1)] @ [Store(Reg r2, add_r)])
+      (symtab, exp_instr_list @ [Store(Reg r2, r1)])
   | ArrUpdate (_, vname, exp1, exp2) -> // ex) x[1] = 2;
       let idx_r, idx_instr_list = transExp symtab exp1
       let val_r, val_instr_list = transExp symtab exp2
