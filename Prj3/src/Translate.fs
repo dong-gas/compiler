@@ -54,22 +54,24 @@ let rec transExp (symtab: SymbolTable) (e: Exp) : Register * Instr list = // 변
       let r = createRegName ()
       (r, [Load (r, varReg)])
   | AddrOf vname -> // &x
-      let varReg = lookupVar symtab vname
-      // let r = createRegName ()
-      (varReg, [])
+      (lookupVar symtab vname, [])
   | Arr (vname, exp) -> // x[exp]
       let varReg = lookupVar symtab vname
       let idx_r, idx_instr_list = transExp symtab exp
+      let typ = lookupType symtab vname
       let sz =
-          match (lookupType symtab vname) with
+          match typ with
           | CBoolArr _-> 1
           | CIntArr _ -> 4
           | _ -> 0
       let r = createRegName ()
-      let tmp = createRegName ()
-      let mul_instr = BinOp(tmp, MulOp, Reg idx_r, Imm sz)
-      let add_instr = BinOp(tmp, AddOp, Reg varReg, Reg tmp)
-      (r, idx_instr_list @ [mul_instr] @ [add_instr] @ [Load(r, tmp)]) 
+      match typ with
+      | CIntArr _ ->
+        let tmp = createRegName ()
+        let mul_instr = BinOp(tmp, MulOp, Reg idx_r, Imm sz)
+        let add_instr = BinOp(tmp, AddOp, Reg varReg, Reg tmp)    
+        (r, idx_instr_list @ [mul_instr] @ [add_instr] @ [Load(r, tmp)])
+      | _ -> (r, idx_instr_list @ [BinOp(r, AddOp, Reg varReg, Reg idx_r)] @ [Load(r, r)])
   | Neg exp -> // -E
       let r, exp_instr_list = transExp symtab exp
       let reg = createRegName ()
@@ -172,15 +174,19 @@ let rec transStmt (symtab: SymbolTable) stmt : SymbolTable * Instr list =
       let idx_r, idx_instr_list = transExp symtab exp1
       let val_r, val_instr_list = transExp symtab exp2
       let first_reg = lookupVar symtab vname
+      let typ = lookupType symtab vname
       let sz =
-          match (lookupType symtab vname) with
+          match typ with
           | CBoolArr _-> 1
           | CIntArr _ -> 4
           | _ -> 0
       let r = createRegName ()
-      let mul_instr = [BinOp(r, MulOp, Reg idx_r, Imm sz)]
-      let add_instr = [BinOp(r, AddOp, Reg first_reg, Reg r)]
-      (symtab, idx_instr_list @ val_instr_list @ mul_instr @ add_instr @ [Store(Reg val_r, r)])
+      match typ with
+      | CIntArr _ ->
+          let mul_instr = [BinOp(r, MulOp, Reg idx_r, Imm sz)]
+          let add_instr = [BinOp(r, AddOp, Reg first_reg, Reg r)]
+          (symtab, idx_instr_list @ val_instr_list @ mul_instr @ add_instr @ [Store(Reg val_r, r)])
+      | _ -> (symtab, idx_instr_list @ val_instr_list @ [BinOp(r, AddOp, Reg first_reg, Reg idx_r)] @ [Store(Reg val_r, r)])
   | Return (_, exp) -> // ex) return 0;
       let r, exp_instr_list = transExp symtab exp      
       (symtab, exp_instr_list @ [Ret (Reg r)])
