@@ -6,7 +6,7 @@ from subprocess import PIPE
 
 ROOT_DIR = path.dirname(path.abspath(__file__))
 CONFIG_FILE = "config"
-MAX_RUNTIME = 5.5
+MAX_RUNTIME = 5
 DELAY_PENALTY = 0.8
 BUILD_DIRNAME="out"
 TESTCASE_DIRNAME = "testcase"

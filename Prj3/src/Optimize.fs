@@ -150,6 +150,14 @@ module Mem2Reg =
   let run instrs =
     let trash_above = "trash_above"
     let trash_below = "trash_below"
+    let label_set =
+                    instrs 
+                    |> List.filter (fun instr ->
+                        match instr with
+                        | Label c -> c[0] = '%'
+                        | _ -> false
+                        )
+                    |> Set.ofList
     let can index instr instrs =
         match instr with
         | LocalAlloc (reg, _) ->
@@ -157,48 +165,35 @@ module Mem2Reg =
             else
                 match (List.tryItem (index - 1) instrs, List.tryItem (index + 1) instrs) with
                 | Some (Label a), Some (Label b) when a = trash_above && b = trash_below ->
-                    if not (List.exists (function Label l when l = reg -> true | _ -> false) instrs) then Some reg
+                    if not (Set.contains (Label reg) label_set) then Some reg
                     else None
                 | _ -> None
         | _ -> None
     
-    let mutable R = None
-    let mutable x = -1
-    List.iteri (fun index instr ->
-        let ret = can index instr instrs
-        if  ret <> None && x = -1 then
-            x <- index
-            R <- ret
-    ) instrs
+
+    let del_set =
+        instrs
+        |> List.fold (fun (acc, index) instr ->
+            match can index instr instrs with
+            | Some ret -> (Set.add ret acc, index + 1)
+            | None -> (acc, index + 1)  
+        ) (Set.empty, 0)
+        |> fst
+
     
-    if x = -1 then (false, instrs) else
-        let replace_store_to_set (lst: Instr List) =
-            lst |> List.map (fun x ->
-                        match x with
-                        | Store(o, reg) ->
-                            if Some reg = R then Set(reg, o)
-                            else x
-                        | _ -> x 
-                )
-        let replace_load_to_set (lst: Instr list) =
-            lst |> List.map (fun x ->
-                        match x with
-                        | Load(r1, reg) ->
-                            if Some reg = R then Set(r1, Reg reg)
-                            else x
-                        | _ -> x
-                )
-        let remove_localAlloc (lst: Instr list) =
-            lst |> List.filter (fun x ->
-                    match x with
-                    | LocalAlloc(reg, _) -> Some reg <> R
-                    | _ -> true
-                )
-        let retlist = instrs
-        let retlist = remove_localAlloc retlist
-        let retlist = replace_load_to_set retlist
-        let retlist = replace_store_to_set retlist
-        (true, retlist)
+    if Set.count del_set = 0 then (false, instrs)
+    else
+        let fix_instrs (instrs: Instr list) (del_set: Set<Register>) =
+            instrs
+            |> List.map (fun x ->
+                match x with
+                | LocalAlloc(reg, _) when Set.contains reg del_set -> None  // LocalAlloc 제거
+                | Store(o, reg) when Set.contains reg del_set -> Some(Set(reg, o))  // Store 변환
+                | Load(r1, reg) when Set.contains reg del_set -> Some(Set(r1, Reg reg))  // Load 변환
+                | _ -> Some x
+            )
+            |> List.choose id
+        (true, fix_instrs instrs del_set)
 
 module DeadCodeElimination =
   let run instrs =
